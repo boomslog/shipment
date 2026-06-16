@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHIPMENT BOOMS - Live Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #e9ecef;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1e3c72;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        h1 small {
+            font-size: 11px;
+            opacity: 0.8;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .status {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .online {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .controls {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0f2b52;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b02a37;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 6px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .login-container {
+            max-width: 380px;
+            margin: 80px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .login-container h2 {
+            margin-bottom: 16px;
+            color: #1e3c72;
+            font-size: 22px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 8px 0;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            padding: 16px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* Tabel garis hitam */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            border: 1px solid #000000;
+            table-layout: auto;
+        }
+
+        th {
+            background: #1e3c72;
+            color: white;
+            padding: 10px 8px;
+            text-align: center;
+            border: 1px solid #000000;
+            font-weight: 600;
+            font-size: 13px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 8px 6px;
+            border: 1px solid #000000;
+            vertical-align: top;
+            word-break: break-word;
+            white-space: normal;
+            line-height: 1.4;
+        }
+
+        /* Warna baris zebra untuk keterbacaan */
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #e8f4f8;
+        }
+
+        /* Warna ETA yang sudah lewat */
+        .eta-lewat {
+            background-color: #f8d7da;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        /* Warna AJU berdasarkan nilai */
+        .aju-merah {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .aju-hijau {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .aju-kuning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .info-bar {
+            padding: 8px 20px;
+            background: #e9ecef;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+            border: 1px solid #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #e9ecef;
+            border-top: 3px solid #1e3c72;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+    // ============ KONFIGURASI ============
+    const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
+
+    const ACCESS_PASSWORD = 'logistik2024';
+    const REFRESH_INTERVAL = 30000;
+
+    // KOLOM YANG DITAMPILKAN (Urutan sesuai permintaan)
+    const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BL', 'CONTAINER', 'AJU', 'ETA', 'POD', 'EXP DO'];
+    // ======================================
+
+    let currentData = [];
+    let filteredData = [];
+    let refreshTimer = null;
+
+    // Fungsi untuk mendapatkan warna AJU berdasarkan nilai (Merah, Hijau, Kuning)
+    function getAjuColorClass(ajuValue) {
+        if (!ajuValue) return '';
+
+        const value = String(ajuValue).toLowerCase().trim();
+
+        // MERAH
+        if (value.includes('753')) {
+            return 'aju-merah';
+        }
+        // HIJAU
+        if (value.includes('744') || value.includes('746')) {
+            return 'aju-hijau';
+        }
+        // KUNING
+        if (value.includes('750') || value.includes('751') || value.includes('bc')) {
+            return 'aju-kuning';
+        }
+
+        return '';
+    }
+
+    // Fungsi parsing tanggal (format: 6-Jun-2026, 9-Jun-2026, dll)
+    function parseDate(dateString) {
+        if (!dateString) return null;
+
+        try {
+            let cleaned = dateString.toString().trim();
+            cleaned = cleaned.replace(/-/g, ' ');
+            cleaned = cleaned.replace(/\//g, ' ');
+
+            const parts = cleaned.split(' ');
+            if (parts.length >= 3) {
+                let day = parseInt(parts[0]);
+                let monthStr = parts[1];
+                let year = parseInt(parts[2]);
+
+                const months = {
+                    'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+                    'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11,
+                    'january': 0, 'february': 1, 'march': 2, 'april': 3, 'june': 5,
+                    'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
+                };
+
+                let month = months[monthStr.toLowerCase()];
+                if (month !== undefined && !isNaN(day) && !isNaN(year)) {
+                    return new Date(year, month, day);
+                }
+            }
+
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? null : date;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    class SecureSheetViewer {
+        constructor() {
+            this.checkAuth();
+        }
+
+        checkAuth() {
+            const isAuthenticated = sessionStorage.getItem('sheet_authenticated');
+            if (isAuthenticated === 'true') {
+                this.initApp();
+            } else {
+                this.showLogin();
+            }
+        }
+
+        showLogin() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="login-container">
+                    <h2>🔒 Akses Terbatas</h2>
+                    <p style="margin-bottom: 20px; color: #666;">Masukkan password untuk melihat data SHIPMENT BOOMS</p>
+                    <input type="password" id="passwordInput" class="login-input" placeholder="Password" autocomplete="off">
+                    <button onclick="window.viewer.verifyPassword()" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Verifikasi Akses</button>
+                    <div id="loginError" class="error"></div>
+                </div>
+            `;
+            document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.verifyPassword();
+            });
+        }
+
+        verifyPassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const errorDiv = document.getElementById('loginError');
+            if (passwordInput.value === ACCESS_PASSWORD) {
+                sessionStorage.setItem('sheet_authenticated', 'true');
+                this.initApp();
+            } else {
+                errorDiv.textContent = '❌ Password salah! Akses ditolak.';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        }
+
+        async initApp() {
+            this.renderMainUI();
+            await this.loadData();
+            this.startAutoRefresh();
+        }
+
+        renderMainUI() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <div>
+                            <h1>🚢 SHIPMENT BOOMS - Live Tracking<br><small>CONSIGNEE | VESSEL | BL | CONTAINER | AJU | ETA | POD | EXP DO</small></h1>
+                            <div class="legend">
+                                <div class="legend-item"><div class="legend-color" style="background:#f8d7da;"></div><span>ETA Sudah Lewat</span></div>
+                                <div class="legend-item"><div class="legend-color" style="background:#d4edda;"></div><span>AJU: 744 / 746 (Hijau)</span></div>
+                                <div class="legend-item"><div class="legend-color" style="background:#fff3cd;"></div><span>AJU: 750 / 751 / BC (Kuning)</span></div>
+                                <div class="legend-item"><div class="legend-color" style="background:#f8d7da;"></div><span>AJU: 753 (Merah)</span></div>
+                            </div>
+                        </div>
+                        <div class="status"><div class="online"></div><span>Live Update (${REFRESH_INTERVAL / 1000} detik)</span></div>
+                    </div>
+                    <div class="controls">
+                        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari berdasarkan CONSIGNEE, BL, Container, atau Vessel...">
+                        <button id="refreshBtn" class="btn btn-primary">🔄 Refresh Manual</button>
+                        <button id="logoutBtn" class="btn btn-danger">🚪 Logout</button>
+                    </div>
+                    <div class="info-bar" id="infoBar">
+                        <span>📅 Memuat data...</span>
+                        <span>📊 0 baris</span>
+                    </div>
+                    <div class="table-wrapper" id="tableWrapper">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Memuat data dari Google Sheets...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('searchInput').addEventListener('input', (e) => this.filterData(e.target.value));
+            document.getElementById('refreshBtn').addEventListener('click', () => this.loadData(true));
+            document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+        }
+
+        async loadData(showNotification = false) {
+            try {
+                this.showLoading();
+
+                const response = await fetch(GOOGLE_SHEET_CSV_URL);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const csvText = await response.text();
+                if (!csvText || csvText.trim() === '') throw new Error('Data kosong');
+
+                this.parseCSV(csvText);
+
+                if (showNotification) this.showToast('Data berhasil diperbarui!', 'success');
+
+                this.updateTable();
+                this.updateInfoBar();
+            } catch (error) {
+                console.error(error);
+                this.showError(`GAGAL MEMUAT DATA
+
+Error: ${error.message}
+
+Pastikan:
+1. Spreadsheet sudah dipublikasikan ke web dengan format CSV
+2. Koneksi internet stabil
+3. File HTML diupload ke hosting (Netlify) atau dijalankan dengan local server`);
+            }
+        }
+
+        parseCSV(csvText) {
+            const rows = csvText.split('\n').filter(row => row.trim());
+            if (rows.length === 0) return;
+
+            // Ambil header dari baris pertama
+            const rawHeaders = this.parseCSVRow(rows[0]);
+            const headerMap = {};
+
+            rawHeaders.forEach((h, idx) => {
+                headerMap[h.toLowerCase().trim()] = idx;
+            });
+
+            // Mapping kolom yang dicari
+            const columnIndices = {};
+            DISPLAY_COLUMNS.forEach(col => {
+                const lowerCol = col.toLowerCase();
+                if (headerMap[lowerCol] !== undefined) {
+                    columnIndices[col] = headerMap[lowerCol];
+                } else {
+                    console.warn(`⚠️ Kolom "${col}" tidak ditemukan di spreadsheet`);
+                    columnIndices[col] = -1;
+                }
+            });
+
+            // Parse data baris
+            const dataRows = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = this.parseCSVRow(rows[i]);
+                const rowData = {};
+                let hasData = false;
+
+                for (const col of DISPLAY_COLUMNS) {
+                    const idx = columnIndices[col];
+                    if (idx !== -1 && idx < row.length) {
+                        rowData[col] = row[idx] || '';
+                        if (rowData[col]) hasData = true;
+                    } else {
+                        rowData[col] = '';
+                    }
+                }
+
+                if (hasData) {
+                    // Parse ETA untuk sorting
+                    rowData._parsedDate = parseDate(rowData['ETA']);
+                    dataRows.push(rowData);
+                }
+            }
+
+            // SORTIR: Urutkan berdasarkan ETA (yang paling awal / sudah lewat di atas)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            dataRows.sort((a, b) => {
+                // Yang tidak punya ETA taruh di bawah
+                if (!a._parsedDate && !b._parsedDate) return 0;
+                if (!a._parsedDate) return 1;
+                if (!b._parsedDate) return -1;
+
+                // Urutkan dari yang paling awal
+                return a._parsedDate - b._parsedDate;
+            });
+
+            currentData = dataRows;
+            filteredData = [...currentData];
+        }
+
+        parseCSVRow(row) {
+            const result = [];
+            let inQuotes = false;
+            let currentValue = '';
+
+            for (let i = 0; i < row.length; i++) {
+                const char = row[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(currentValue.trim());
+                    currentValue = '';
+                } else {
+                    currentValue += char;
+                }
+            }
+            result.push(currentValue.trim());
+
+            return result;
+        }
+
+        filterData(searchTerm) {
+            if (!searchTerm.trim()) {
+                filteredData = [...currentData];
+            } else {
+                const term = searchTerm.toLowerCase();
+                filteredData = currentData.filter(row => {
+                    return Object.values(row).some(value =>
+                        value && String(value).toLowerCase().includes(term)
+                    );
+                });
+            }
+            this.updateTable();
+            this.updateInfoBar(searchTerm);
+        }
+
+        updateTable() {
+            const wrapper = document.getElementById('tableWrapper');
+            if (!wrapper) return;
+
+            if (filteredData.length === 0) {
+                wrapper.innerHTML = '<div class="loading"><p>📭 Tidak ada data yang ditemukan</p></div>';
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let html = '<table>\n<thead>\n<tr>\n';
+
+            // Header tabel
+            for (const col of DISPLAY_COLUMNS) {
+                let displayName = col;
+                if (col === 'ETA') displayName = 'ETA 📅';
+                if (col === 'AJU') displayName = 'AJU ⚡';
+                if (col === 'VESSEL') displayName = 'VESSEL ⚓';
+                html += `<th>${displayName}</th>\n`;
+            }
+            html += '</tr>\n</thead>\n<tbody>\n';
+
+            // Data baris
+            for (const row of filteredData) {
+                html += '<tr>\n';
+
+                for (const col of DISPLAY_COLUMNS) {
+                    let value = row[col] || '-';
+                    let additionalClass = '';
+                    let styleAttr = '';
+
+                    // Warna untuk kolom ETA (jika sudah lewat)
+                    if (col === 'ETA') {
+                        const etaDate = parseDate(value);
+                        if (etaDate && etaDate < today) {
+                            additionalClass = 'eta-lewat';
+                            value = `⚠️ ${value}`;
+                        }
+                    }
+
+                    // Warna untuk kolom AJU
+                    if (col === 'AJU') {
+                        additionalClass = getAjuColorClass(value);
+                    }
+
+                    // Container bisa berisi multiple nomor (dipisah koma)
+                    if (col === 'CONTAINER' && value.includes(',')) {
+                        value = value.replace(/,/g, ', ');
+                    }
+
+                    html += `<td class="${additionalClass}" ${styleAttr}>${this.escapeHtml(value)}</td>\n`;
+                }
+
+                html += '</tr>\n';
+            }
+
+            html += '</tbody>\n</table>';
+            wrapper.innerHTML = html;
+        }
+
+        updateInfoBar(searchTerm = '') {
+            const infoBar = document.getElementById('infoBar');
+            if (!infoBar) return;
+
+            const lastUpdate = new Date().toLocaleTimeString('id-ID');
+            const totalRows = currentData.length;
+            const filteredRows = filteredData.length;
+
+            infoBar.innerHTML = `
+                <span>🕐 Update terakhir: ${lastUpdate}</span>
+                <span>📊 Menampilkan ${filteredRows} dari ${totalRows} baris data</span>
+                ${searchTerm ? `<span>🔍 Filter: "${searchTerm}"</span>` : ''}
+                <span class="badge">Urut berdasarkan ETA ↑</span>
+            `;
+        }
+
+        showLoading() {
+            const wrapper = document.getElementById('tableWrapper');
+            if (wrapper) {
+                wrapper.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Mengupdate data dari server...</p>
+                    </div>
+                `;
+            }
+        }
+
+        showError(message) {
+            const wrapper = document.getElementById('tableWrapper');
+            if (wrapper) {
+                wrapper.innerHTML = `
+                    <div class="loading">
+                        <div style="color: #dc3545; font-size: 40px; margin-bottom: 12px;">⚠️</div>
+                        <p style="color: #dc3545; white-space: pre-line;">${message}</p>
+                        <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 15px;">Coba Lagi</button>
+                    </div>
+                `;
+            }
+        }
+
+        showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#28a745' : '#17a2b8'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-size: 13px;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => this.loadData(false), REFRESH_INTERVAL);
+        }
+
+        logout() {
+            sessionStorage.removeItem('sheet_authenticated');
+            if (refreshTimer) clearInterval(refreshTimer);
+            this.checkAuth();
+        }
+
+        escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+
+    // Tambahkan animasi CSS tambahan
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Initialize
+    window.viewer = new SecureSheetViewer();
+</script>
+</body>
+</html>

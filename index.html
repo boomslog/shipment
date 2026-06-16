@@ -2,150 +2,97 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>SHIPMENT BOOMS - Live Tracking</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #e9ecef;
-            padding: 20px;
+            padding: 10px;
+            min-height: 100vh;
         }
-
         .container {
             max-width: 100%;
             margin: 0 auto;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-
         .header {
             background: #1e3c72;
             color: white;
-            padding: 16px 24px;
+            padding: 14px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        h1 {
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        h1 small {
-            font-size: 11px;
-            opacity: 0.8;
-            display: block;
-            margin-top: 4px;
-        }
-
-        .status {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
             gap: 8px;
         }
-
+        h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+        .status {
+            background: rgba(255,255,255,0.15);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
         .online {
-            width: 8px;
-            height: 8px;
+            width: 7px; height: 7px;
             background: #4ade80;
             border-radius: 50%;
             animation: pulse 1.5s infinite;
+            flex-shrink: 0;
         }
-
         @keyframes pulse {
-            0% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.5;
-                transform: scale(1.2);
-            }
-
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
         }
-
         .controls {
-            padding: 12px 20px;
+            padding: 10px 12px;
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
             display: flex;
-            gap: 12px;
+            gap: 8px;
             flex-wrap: wrap;
             align-items: center;
         }
-
         .btn {
-            padding: 6px 14px;
+            padding: 5px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: 500;
-            font-size: 13px;
+            font-size: 12px;
             transition: all 0.2s;
+            white-space: nowrap;
         }
-
-        .btn-primary {
-            background: #1e3c72;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0f2b52;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #b02a37;
-        }
-
+        .btn-primary { background: #1e3c72; color: white; }
+        .btn-primary:hover { background: #0f2b52; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #b02a37; }
         .search-box {
             flex: 1;
-            min-width: 200px;
-            padding: 6px 12px;
+            min-width: 120px;
+            padding: 5px 10px;
             border: 1px solid #ced4da;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
         }
-
         .login-container {
-            max-width: 380px;
-            margin: 80px auto;
+            max-width: 340px;
+            margin: 60px auto;
             background: white;
             border-radius: 12px;
-            padding: 32px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            padding: 28px 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
-
-        .login-container h2 {
-            margin-bottom: 16px;
-            color: #1e3c72;
-            font-size: 22px;
-        }
-
+        .login-container h2 { margin-bottom: 14px; color: #1e3c72; font-size: 20px; }
         .login-input {
             width: 100%;
             padding: 10px 12px;
@@ -154,148 +101,101 @@
             border-radius: 6px;
             font-size: 14px;
         }
-
-        .error {
-            color: #dc3545;
-            margin-top: 10px;
-            font-size: 13px;
-        }
-
+        .error { color: #dc3545; margin-top: 10px; font-size: 13px; }
         .table-wrapper {
             overflow-x: auto;
-            padding: 16px;
+            padding: 8px 10px;
             max-height: 70vh;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
-
-        /* Tabel garis hitam */
         table {
             width: 100%;
+            min-width: 700px;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 12px;
             border: 1px solid #000000;
             table-layout: auto;
         }
-
         th {
             background: #1e3c72;
             color: white;
-            padding: 10px 8px;
+            padding: 8px 5px;
             text-align: center;
             border: 1px solid #000000;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 11px;
             position: sticky;
             top: 0;
             z-index: 10;
             white-space: nowrap;
         }
-
         td {
-            padding: 8px 6px;
+            padding: 6px 5px;
             border: 1px solid #000000;
             vertical-align: top;
             word-break: break-word;
             white-space: normal;
-            line-height: 1.4;
+            line-height: 1.3;
+            font-size: 11px;
         }
-
-        /* Warna baris zebra untuk keterbacaan */
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-
-        tr:hover {
-            background-color: #e8f4f8;
-        }
-
-        /* Warna ETA yang sudah lewat */
-        .eta-lewat {
-            background-color: #f8d7da;
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        /* Warna AJU berdasarkan nilai */
-        .aju-merah {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-
-        .aju-hijau {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .aju-kuning {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e8f4f8; }
+        .eta-lewat { background-color: #f8d7da; color: #dc3545; font-weight: bold; }
         .info-bar {
-            padding: 8px 20px;
+            padding: 6px 12px;
             background: #e9ecef;
-            font-size: 12px;
+            font-size: 11px;
             display: flex;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 4px;
             border-top: 1px solid #dee2e6;
         }
-
-        .badge {
-            background: #28a745;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-        }
-
-        .legend {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 6px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11px;
-        }
-
-        .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 2px;
-            border: 1px solid #999;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
+        .badge { background: #28a745; color: white; padding: 1px 8px; border-radius: 12px; font-size: 10px; }
+        .loading { text-align: center; padding: 30px 20px; color: #666; font-size: 13px; }
         .spinner {
             border: 3px solid #e9ecef;
             border-top: 3px solid #1e3c72;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 30px; height: 30px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
+            margin: 0 auto 10px;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+        /* ===== RESPONSIVE HP ===== */
+        @media screen and (max-width: 768px) {
+            body { padding: 6px; }
+            .header { padding: 10px 12px; }
+            h1 { font-size: 15px; }
+            .status { font-size: 10px; padding: 3px 8px; }
+            .controls { padding: 8px 10px; gap: 6px; }
+            .search-box { font-size: 11px; padding: 4px 8px; min-width: 80px; }
+            .btn { font-size: 11px; padding: 4px 10px; }
+            .table-wrapper { padding: 4px 6px; max-height: 75vh; }
+            table { font-size: 10px; min-width: 550px; }
+            th { font-size: 9px; padding: 5px 3px; }
+            td { font-size: 9px; padding: 4px 3px; }
+            .info-bar { font-size: 9px; padding: 4px 10px; }
+            .login-container { margin: 30px 16px; padding: 20px 16px; }
+        }
+        @media screen and (max-width: 480px) {
+            h1 { font-size: 13px; }
+            .status { font-size: 9px; }
+            table { font-size: 9px; min-width: 450px; }
+            th { font-size: 8px; padding: 4px 2px; }
+            td { font-size: 8px; padding: 3px 2px; }
+            .search-box { font-size: 10px; min-width: 60px; }
+            .btn { font-size: 10px; padding: 3px 8px; }
+        }
+        @media screen and (max-height: 500px) and (orientation: landscape) {
+            .header { padding: 6px 12px; }
+            h1 { font-size: 14px; }
+            .controls { padding: 4px 10px; }
+            .table-wrapper { max-height: 60vh; padding: 4px 6px; }
+            table { font-size: 10px; }
+            th, td { padding: 3px 4px; }
         }
     </style>
 </head>
@@ -309,75 +209,81 @@
     const ACCESS_PASSWORD = 'logistik2024';
     const REFRESH_INTERVAL = 30000;
 
-    // KOLOM YANG DITAMPILKAN (Urutan sesuai permintaan)
-    const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BL', 'CONTAINER', 'AJU', 'ETA', 'POD', 'EXP DO'];
+    // KOLOM YANG DITAMPILKAN (TERMASUK REMARK)
+    const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BL', 'CONTAINER', 'AJU', 'ETA', 'POD', 'EXP DO', 'REMARK'];
     // ======================================
 
     let currentData = [];
     let filteredData = [];
     let refreshTimer = null;
 
-    // Fungsi untuk mendapatkan warna AJU berdasarkan nilai (Merah, Hijau, Kuning)
-    function getAjuColorClass(ajuValue) {
-        if (!ajuValue) return '';
-
-        const value = String(ajuValue).toLowerCase().trim();
-
-        // MERAH
-        if (value.includes('753')) {
-            return 'aju-merah';
-        }
-        // HIJAU
-        if (value.includes('744') || value.includes('746')) {
-            return 'aju-hijau';
-        }
-        // KUNING
-        if (value.includes('750') || value.includes('751') || value.includes('bc')) {
-            return 'aju-kuning';
-        }
-
-        return '';
-    }
-
-    // Fungsi parsing tanggal (format: 6-Jun-2026, 9-Jun-2026, dll)
+    // ---- Parse Tanggal ----
     function parseDate(dateString) {
         if (!dateString) return null;
-
         try {
             let cleaned = dateString.toString().trim();
-            cleaned = cleaned.replace(/-/g, ' ');
-            cleaned = cleaned.replace(/\//g, ' ');
-
+            cleaned = cleaned.replace(/-/g, ' ').replace(/\//g, ' ');
             const parts = cleaned.split(' ');
             if (parts.length >= 3) {
                 let day = parseInt(parts[0]);
                 let monthStr = parts[1];
                 let year = parseInt(parts[2]);
-
                 const months = {
                     'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-                    'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11,
-                    'january': 0, 'february': 1, 'march': 2, 'april': 3, 'june': 5,
-                    'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
+                    'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
                 };
-
                 let month = months[monthStr.toLowerCase()];
                 if (month !== undefined && !isNaN(day) && !isNaN(year)) {
                     return new Date(year, month, day);
                 }
             }
-
             const date = new Date(dateString);
             return isNaN(date.getTime()) ? null : date;
-        } catch (e) {
-            return null;
-        }
+        } catch(e) { return null; }
     }
 
-    class SecureSheetViewer {
-        constructor() {
-            this.checkAuth();
+    // ---- FILTER BARIS TIDAK VALID (HAPUS CO, data kosong, dll) ----
+    function isRowValid(rowData) {
+        // Cek apakah ini header duplikat
+        const consignee = (rowData['CONSIGNEE'] || '').toLowerCase().trim();
+        if (consignee === 'consignee' || consignee === 'vessel' || consignee === 'bl' || consignee === '') {
+            return false;
         }
+
+        // Cek kata-kata yang tidak diinginkan di semua kolom
+        const forbiddenWords = ['co.', 'co', '---', '...', 'consignee', 'vessel'];
+        for (const col of DISPLAY_COLUMNS) {
+            const val = (rowData[col] || '').toLowerCase().trim();
+            if (forbiddenWords.includes(val) || val === '') {
+                // Jika semua kolom hanya berisi kata forbidden, tolak
+                let allForbidden = true;
+                for (const c of DISPLAY_COLUMNS) {
+                    const v = (rowData[c] || '').toLowerCase().trim();
+                    if (v && !forbiddenWords.includes(v)) {
+                        allForbidden = false;
+                        break;
+                    }
+                }
+                if (allForbidden) return false;
+            }
+        }
+
+        // Hitung kolom yang terisi (minimal 3 kolom bermakna)
+        let filledCount = 0;
+        for (const col of DISPLAY_COLUMNS) {
+            const val = rowData[col] || '';
+            const trimmed = val.trim();
+            if (trimmed && trimmed !== '-' && trimmed !== 'CO.' && trimmed !== 'CO' && trimmed !== 'co') {
+                filledCount++;
+            }
+        }
+
+        return filledCount >= 3;
+    }
+
+    // ---- CLASS MAIN ----
+    class SecureSheetViewer {
+        constructor() { this.checkAuth(); }
 
         checkAuth() {
             const isAuthenticated = sessionStorage.getItem('sheet_authenticated');
@@ -393,9 +299,9 @@
             app.innerHTML = `
                 <div class="login-container">
                     <h2>🔒 Akses Terbatas</h2>
-                    <p style="margin-bottom: 20px; color: #666;">Masukkan password untuk melihat data SHIPMENT BOOMS</p>
+                    <p style="margin-bottom: 16px; color: #666; font-size: 14px;">Masukkan password untuk melihat data</p>
                     <input type="password" id="passwordInput" class="login-input" placeholder="Password" autocomplete="off">
-                    <button onclick="window.viewer.verifyPassword()" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Verifikasi Akses</button>
+                    <button onclick="window.viewer.verifyPassword()" class="btn btn-primary" style="width: 100%; margin-top: 8px; padding: 10px;">Verifikasi Akses</button>
                     <div id="loginError" class="error"></div>
                 </div>
             `;
@@ -428,20 +334,15 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <div>
-                            <h1>🚢 SHIPMENT BOOMS - Live Tracking<br><small>CONSIGNEE | VESSEL | BL | CONTAINER | AJU | ETA | POD | EXP DO</small></h1>
-                            <div class="legend">
-                                <div class="legend-item"><div class="legend-color" style="background:#f8d7da;"></div><span>ETA Sudah Lewat</span></div>
-                                <div class="legend-item"><div class="legend-color" style="background:#d4edda;"></div><span>AJU: 744 / 746 (Hijau)</span></div>
-                                <div class="legend-item"><div class="legend-color" style="background:#fff3cd;"></div><span>AJU: 750 / 751 / BC (Kuning)</span></div>
-                                <div class="legend-item"><div class="legend-color" style="background:#f8d7da;"></div><span>AJU: 753 (Merah)</span></div>
-                            </div>
+                        <h1>🚢 SHIPMENT BOOMS - Live Tracking</h1>
+                        <div class="status">
+                            <div class="online"></div>
+                            <span>Live Update (${REFRESH_INTERVAL / 1000} detik)</span>
                         </div>
-                        <div class="status"><div class="online"></div><span>Live Update (${REFRESH_INTERVAL / 1000} detik)</span></div>
                     </div>
                     <div class="controls">
-                        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari berdasarkan CONSIGNEE, BL, Container, atau Vessel...">
-                        <button id="refreshBtn" class="btn btn-primary">🔄 Refresh Manual</button>
+                        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari data...">
+                        <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
                         <button id="logoutBtn" class="btn btn-danger">🚪 Logout</button>
                     </div>
                     <div class="info-bar" id="infoBar">
@@ -464,7 +365,6 @@
         async loadData(showNotification = false) {
             try {
                 this.showLoading();
-
                 const response = await fetch(GOOGLE_SHEET_CSV_URL);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -477,16 +377,9 @@
 
                 this.updateTable();
                 this.updateInfoBar();
-            } catch (error) {
+            } catch(error) {
                 console.error(error);
-                this.showError(`GAGAL MEMUAT DATA
-
-Error: ${error.message}
-
-Pastikan:
-1. Spreadsheet sudah dipublikasikan ke web dengan format CSV
-2. Koneksi internet stabil
-3. File HTML diupload ke hosting (Netlify) atau dijalankan dengan local server`);
+                this.showError(`GAGAL MEMUAT DATA\n\nError: ${error.message}`);
             }
         }
 
@@ -494,27 +387,18 @@ Pastikan:
             const rows = csvText.split('\n').filter(row => row.trim());
             if (rows.length === 0) return;
 
-            // Ambil header dari baris pertama
             const rawHeaders = this.parseCSVRow(rows[0]);
             const headerMap = {};
-
             rawHeaders.forEach((h, idx) => {
                 headerMap[h.toLowerCase().trim()] = idx;
             });
 
-            // Mapping kolom yang dicari
             const columnIndices = {};
-            DISPLAY_COLUMNS.forEach(col => {
+            for (const col of DISPLAY_COLUMNS) {
                 const lowerCol = col.toLowerCase();
-                if (headerMap[lowerCol] !== undefined) {
-                    columnIndices[col] = headerMap[lowerCol];
-                } else {
-                    console.warn(`⚠️ Kolom "${col}" tidak ditemukan di spreadsheet`);
-                    columnIndices[col] = -1;
-                }
-            });
+                columnIndices[col] = headerMap[lowerCol] !== undefined ? headerMap[lowerCol] : -1;
+            }
 
-            // Parse data baris
             const dataRows = [];
             for (let i = 1; i < rows.length; i++) {
                 const row = this.parseCSVRow(rows[i]);
@@ -531,24 +415,21 @@ Pastikan:
                     }
                 }
 
+                // Filter baris tidak valid
+                if (!isRowValid(rowData)) {
+                    continue;
+                }
+
                 if (hasData) {
-                    // Parse ETA untuk sorting
                     rowData._parsedDate = parseDate(rowData['ETA']);
                     dataRows.push(rowData);
                 }
             }
 
-            // SORTIR: Urutkan berdasarkan ETA (yang paling awal / sudah lewat di atas)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
             dataRows.sort((a, b) => {
-                // Yang tidak punya ETA taruh di bawah
                 if (!a._parsedDate && !b._parsedDate) return 0;
                 if (!a._parsedDate) return 1;
                 if (!b._parsedDate) return -1;
-
-                // Urutkan dari yang paling awal
                 return a._parsedDate - b._parsedDate;
             });
 
@@ -560,7 +441,6 @@ Pastikan:
             const result = [];
             let inQuotes = false;
             let currentValue = '';
-
             for (let i = 0; i < row.length; i++) {
                 const char = row[i];
                 if (char === '"') {
@@ -573,7 +453,6 @@ Pastikan:
                 }
             }
             result.push(currentValue.trim());
-
             return result;
         }
 
@@ -597,7 +476,7 @@ Pastikan:
             if (!wrapper) return;
 
             if (filteredData.length === 0) {
-                wrapper.innerHTML = '<div class="loading"><p>📭 Tidak ada data yang ditemukan</p></div>';
+                wrapper.innerHTML = '<div class="loading"><p>📭 Tidak ada data ditemukan</p></div>';
                 return;
             }
 
@@ -605,27 +484,20 @@ Pastikan:
             today.setHours(0, 0, 0, 0);
 
             let html = '<table>\n<thead>\n<tr>\n';
-
-            // Header tabel
             for (const col of DISPLAY_COLUMNS) {
                 let displayName = col;
                 if (col === 'ETA') displayName = 'ETA 📅';
-                if (col === 'AJU') displayName = 'AJU ⚡';
-                if (col === 'VESSEL') displayName = 'VESSEL ⚓';
+                if (col === 'AJU') displayName = 'AJU';
                 html += `<th>${displayName}</th>\n`;
             }
             html += '</tr>\n</thead>\n<tbody>\n';
 
-            // Data baris
             for (const row of filteredData) {
                 html += '<tr>\n';
-
                 for (const col of DISPLAY_COLUMNS) {
                     let value = row[col] || '-';
                     let additionalClass = '';
-                    let styleAttr = '';
 
-                    // Warna untuk kolom ETA (jika sudah lewat)
                     if (col === 'ETA') {
                         const etaDate = parseDate(value);
                         if (etaDate && etaDate < today) {
@@ -634,19 +506,14 @@ Pastikan:
                         }
                     }
 
-                    // Warna untuk kolom AJU
-                    if (col === 'AJU') {
-                        additionalClass = getAjuColorClass(value);
-                    }
+                    // Tidak ada warna untuk AJU
 
-                    // Container bisa berisi multiple nomor (dipisah koma)
                     if (col === 'CONTAINER' && value.includes(',')) {
                         value = value.replace(/,/g, ', ');
                     }
 
-                    html += `<td class="${additionalClass}" ${styleAttr}>${this.escapeHtml(value)}</td>\n`;
+                    html += `<td class="${additionalClass}">${this.escapeHtml(value)}</td>\n`;
                 }
-
                 html += '</tr>\n';
             }
 
@@ -663,10 +530,10 @@ Pastikan:
             const filteredRows = filteredData.length;
 
             infoBar.innerHTML = `
-                <span>🕐 Update terakhir: ${lastUpdate}</span>
-                <span>📊 Menampilkan ${filteredRows} dari ${totalRows} baris data</span>
-                ${searchTerm ? `<span>🔍 Filter: "${searchTerm}"</span>` : ''}
-                <span class="badge">Urut berdasarkan ETA ↑</span>
+                <span>🕐 Update: ${lastUpdate}</span>
+                <span>📊 ${filteredRows} / ${totalRows} baris</span>
+                ${searchTerm ? `<span>🔍 "${searchTerm}"</span>` : ''}
+                <span class="badge">Urut ETA ↑</span>
             `;
         }
 
@@ -676,7 +543,7 @@ Pastikan:
                 wrapper.innerHTML = `
                     <div class="loading">
                         <div class="spinner"></div>
-                        <p>Mengupdate data dari server...</p>
+                        <p>Mengupdate data...</p>
                     </div>
                 `;
             }
@@ -687,9 +554,9 @@ Pastikan:
             if (wrapper) {
                 wrapper.innerHTML = `
                     <div class="loading">
-                        <div style="color: #dc3545; font-size: 40px; margin-bottom: 12px;">⚠️</div>
-                        <p style="color: #dc3545; white-space: pre-line;">${message}</p>
-                        <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 15px;">Coba Lagi</button>
+                        <div style="color: #dc3545; font-size: 32px; margin-bottom: 10px;">⚠️</div>
+                        <p style="color: #dc3545; white-space: pre-line; font-size: 13px;">${message}</p>
+                        <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 12px;">Coba Lagi</button>
                     </div>
                 `;
             }
@@ -703,12 +570,13 @@ Pastikan:
                 right: 20px;
                 background: ${type === 'success' ? '#28a745' : '#17a2b8'};
                 color: white;
-                padding: 10px 20px;
+                padding: 8px 16px;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 z-index: 1000;
                 animation: slideIn 0.3s ease;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                max-width: 80%;
             `;
             toast.textContent = message;
             document.body.appendChild(toast);
@@ -716,7 +584,7 @@ Pastikan:
             setTimeout(() => {
                 toast.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => toast.remove(), 300);
-            }, 2500);
+            }, 2000);
         }
 
         startAutoRefresh() {
@@ -738,33 +606,21 @@ Pastikan:
         }
     }
 
-    // Tambahkan animasi CSS tambahan
-    const style = document.createElement('style');
-    style.textContent = `
+    // Animasi tambahan
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
         @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
         @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
     `;
-    document.head.appendChild(style);
+    document.head.appendChild(styleEl);
 
-    // Initialize
+    // Jalankan
     window.viewer = new SecureSheetViewer();
 </script>
 </body>

@@ -111,7 +111,7 @@
         }
         table {
             width: 100%;
-            min-width: 700px;
+            min-width: 800px;
             border-collapse: collapse;
             font-size: 12px;
             border: 1px solid #000000;
@@ -174,7 +174,7 @@
             .search-box { font-size: 11px; padding: 4px 8px; min-width: 80px; }
             .btn { font-size: 11px; padding: 4px 10px; }
             .table-wrapper { padding: 4px 6px; max-height: 75vh; }
-            table { font-size: 10px; min-width: 550px; }
+            table { font-size: 10px; min-width: 650px; }
             th { font-size: 9px; padding: 5px 3px; }
             td { font-size: 9px; padding: 4px 3px; }
             .info-bar { font-size: 9px; padding: 4px 10px; }
@@ -183,7 +183,7 @@
         @media screen and (max-width: 480px) {
             h1 { font-size: 13px; }
             .status { font-size: 9px; }
-            table { font-size: 9px; min-width: 450px; }
+            table { font-size: 9px; min-width: 500px; }
             th { font-size: 8px; padding: 4px 2px; }
             td { font-size: 8px; padding: 3px 2px; }
             .search-box { font-size: 10px; min-width: 60px; }
@@ -209,13 +209,22 @@
     const ACCESS_PASSWORD = 'logistik2024';
     const REFRESH_INTERVAL = 30000;
 
-    // KOLOM YANG DITAMPILKAN (TERMASUK REMARK)
-    const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BL', 'CONTAINER', 'AJU', 'ETA', 'POD', 'EXP DO', 'REMARK'];
+    // KOLOM YANG DITAMPILKAN (URUTAN: CONSIGNEE, VESSEL, BL, CONTAINER, AJU, TRUCKING, ETA, POD, EXP DO, REMARK)
+    const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BL', 'CONTAINER', 'AJU', 'TRUCKING', 'ETA', 'POD', 'EXP DO', 'REMARK'];
     // ======================================
 
     let currentData = [];
     let filteredData = [];
     let refreshTimer = null;
+
+    // ---- MANUAL OVERRIDE VESSEL untuk AJU 730 ----
+    function overrideVessel(rowData) {
+        const aju = (rowData['AJU'] || '').toString().trim();
+        if (aju === '730') {
+            return 'YM EFFICIENCY / 204S';
+        }
+        return rowData['VESSEL'] || '';
+    }
 
     // ---- Parse Tanggal ----
     function parseDate(dateString) {
@@ -242,20 +251,17 @@
         } catch(e) { return null; }
     }
 
-    // ---- FILTER BARIS TIDAK VALID (HAPUS CO, data kosong, dll) ----
+    // ---- FILTER BARIS TIDAK VALID ----
     function isRowValid(rowData) {
-        // Cek apakah ini header duplikat
         const consignee = (rowData['CONSIGNEE'] || '').toLowerCase().trim();
         if (consignee === 'consignee' || consignee === 'vessel' || consignee === 'bl' || consignee === '') {
             return false;
         }
 
-        // Cek kata-kata yang tidak diinginkan di semua kolom
         const forbiddenWords = ['co.', 'co', '---', '...', 'consignee', 'vessel'];
         for (const col of DISPLAY_COLUMNS) {
             const val = (rowData[col] || '').toLowerCase().trim();
             if (forbiddenWords.includes(val) || val === '') {
-                // Jika semua kolom hanya berisi kata forbidden, tolak
                 let allForbidden = true;
                 for (const c of DISPLAY_COLUMNS) {
                     const v = (rowData[c] || '').toLowerCase().trim();
@@ -268,7 +274,6 @@
             }
         }
 
-        // Hitung kolom yang terisi (minimal 3 kolom bermakna)
         let filledCount = 0;
         for (const col of DISPLAY_COLUMNS) {
             const val = rowData[col] || '';
@@ -415,7 +420,11 @@
                     }
                 }
 
-                // Filter baris tidak valid
+                // APPLY MANUAL OVERRIDE VESSEL untuk AJU 730
+                if (rowData['AJU'] && rowData['AJU'].toString().trim() === '730') {
+                    rowData['VESSEL'] = 'YM EFFICIENCY / 204S';
+                }
+
                 if (!isRowValid(rowData)) {
                     continue;
                 }
@@ -488,6 +497,7 @@
                 let displayName = col;
                 if (col === 'ETA') displayName = 'ETA 📅';
                 if (col === 'AJU') displayName = 'AJU';
+                if (col === 'TRUCKING') displayName = 'TRUCKING 🚛';
                 html += `<th>${displayName}</th>\n`;
             }
             html += '</tr>\n</thead>\n<tbody>\n';
@@ -505,8 +515,6 @@
                             value = `⚠️ ${value}`;
                         }
                     }
-
-                    // Tidak ada warna untuk AJU
 
                     if (col === 'CONTAINER' && value.includes(',')) {
                         value = value.replace(/,/g, ', ');

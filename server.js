@@ -28,6 +28,7 @@ app.get('/api/berthing', async (req, res) => {
         ];
 
         let allData = {};
+        let totalVesselsFound = 0;
 
         for (const source of sources) {
             try {
@@ -36,20 +37,26 @@ app.get('/api/berthing', async (req, res) => {
                 const response = await fetch(source.url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        'Accept': 'text/html'
+                        'Accept': 'text/html,application/xhtml+xml',
+                        'Accept-Language': 'en-US,en;q=0.9'
                     },
-                    timeout: 15000
+                    timeout: 15000 // Timeout 15 detik
                 });
                 
                 if (!response.ok) {
-                    console.warn(`⚠️ ${source.name} HTTP ${response.status}`);
+                    console.warn(`⚠️ ${source.name} HTTP ${response.status} - Lewati`);
                     continue;
                 }
                 
                 const html = await response.text();
-                const parsed = parseBerthingHTML(html, source.name);
+                console.log(`✅ ${source.name} berhasil, panjang: ${html.length} bytes`);
                 
-                // Gabungkan data
+                // Parse HTML
+                const parsed = parseBerthingHTML(html, source.name);
+                const count = Object.keys(parsed).length;
+                totalVesselsFound += count;
+                
+                // Gabungkan data ke allData
                 for (const [vessel, info] of Object.entries(parsed)) {
                     if (allData[vessel]) {
                         if (Array.isArray(allData[vessel])) {
@@ -62,9 +69,11 @@ app.get('/api/berthing', async (req, res) => {
                     }
                 }
             } catch (error) {
-                console.error(`❌ ${source.name} gagal:`, error.message);
+                console.error(`❌ ${source.name} gagal total:`, error.message);
             }
         }
+
+        console.log(`📊 Total vessels berhasil diparse: ${Object.keys(allData).length} (${totalVesselsFound} data)`);
 
         res.json({
             success: true,
@@ -79,26 +88,30 @@ app.get('/api/berthing', async (req, res) => {
 });
 
 // ==========================================
-// PARSER HTML YANG LEBIH CERDAS (Backend)
+// PARSER HTML YANG LEBIH ROBUST (Backend)
 // ==========================================
 function parseBerthingHTML(html, sourceName) {
     const result = {};
     try {
         const $ = cheerio.load(html);
         
-        // Cari tabel
+        // Cari tabel yang relevan
         const tables = $('table');
         let targetTable = null;
         
         for (let i = 0; i < tables.length; i++) {
             const text = $(tables[i]).text().toLowerCase();
-            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule')) {
+            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule') || 
+                text.includes('voyage') || text.includes('etb')) {
                 targetTable = tables[i];
                 break;
             }
         }
         
-        if (!targetTable) return result;
+        if (!targetTable) {
+            console.warn(`⚠️ Tidak ada tabel ditemukan di ${sourceName}`);
+            return result;
+        }
         
         const rows = $(targetTable).find('tr');
         if (rows.length < 2) return result;
@@ -109,38 +122,51 @@ function parseBerthingHTML(html, sourceName) {
             headers.push($(cell).text().trim().toLowerCase());
         });
         
-        // Cari indeks kolom
+        // Cari indeks kolom dengan logika yang lebih longgar
         let vesselIdx = -1, voyageIdx = -1, etaIdx = -1, ataIdx = -1, statusIdx = -1, etdIdx = -1;
         
         for (let i = 0; i < headers.length; i++) {
             const h = headers[i];
-            if (h.includes('vessel') || h.includes('kapal')) vesselIdx = i;
-            if (h.includes('voyage')) voyageIdx = i;
-            if (h.includes('eta')) etaIdx = i;
-            if (h.includes('ata') || h.includes('berthing')) ataIdx = i;
-            if (h.includes('status') || h.includes('keterangan')) statusIdx = i;
+            // Filter pencarian kolom
+            if (h.includes('vessel') || h.includes('kapal') || h.includes('nama') || h.includes('mv')) vesselIdx = i;
+            if (h.includes('voyage') || h.includes('voy')) voyageIdx = i;
+            if (h.includes('eta') || h.includes('etb') || h.includes('arrival')) etaIdx = i;
+            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) ataIdx = i;
+            if (h.includes('status') || h.includes('keterangan') || h.includes('activity')) statusIdx = i;
             if (h.includes('etd') || h.includes('departure')) etdIdx = i;
         }
         
-        // Parse data
+        // Jika masih tidak ketemu vessel, coba cari manual di kolom ke-1 atau ke-2
+        if (vesselIdx === -1) {
+            if (headers.length > 1 && headers[1].includes('name')) vesselIdx = 1;
+            else if (headers.length > 0) vesselIdx = 0;
+        }
+        
+        if (vesselIdx === -1) {
+            console.warn(`⚠️ Tidak ditemukan kolom vessel di ${sourceName}`);
+            return result;
+        }
+        
+        // Parse data baris per baris
+        let parsedCount = 0;
         for (let i = 1; i < rows.length; i++) {
             const cells = $(rows[i]).find('td');
-            if (cells.length === 0) continue;
+            if (cells.length === 0 || cells.length <= vesselIdx) continue;
             
             let vesselName = $(cells[vesselIdx]).text().trim();
-            if (!vesselName) continue;
+            if (!vesselName || vesselName === '-' || vesselName.length < 3) continue;
             
             // Bersihkan nama kapal
             vesselName = vesselName.replace(/^MV\.\s*/i, '').trim().toUpperCase();
             
-            // Ambil nilai mentah
+            // Ambil data mentah
             const rawVoyage = voyageIdx !== -1 && voyageIdx < cells.length ? $(cells[voyageIdx]).text().trim() : '';
             const rawEta = etaIdx !== -1 && etaIdx < cells.length ? $(cells[etaIdx]).text().trim() : '';
             const rawAta = ataIdx !== -1 && ataIdx < cells.length ? $(cells[ataIdx]).text().trim() : '';
             const rawStatus = statusIdx !== -1 && statusIdx < cells.length ? $(cells[statusIdx]).text().trim() : '';
             const rawEtd = etdIdx !== -1 && etdIdx < cells.length ? $(cells[etdIdx]).text().trim() : '';
 
-            // Tentukan Status dengan mapping yang lebih akurat
+            // Tentukan Status
             let berthingStatus = 'scheduled';
             let statusDisplay = rawStatus;
             
@@ -161,7 +187,6 @@ function parseBerthingHTML(html, sourceName) {
                 if (!str) return { date: '', time: '' };
                 let datePart = str;
                 let timePart = '';
-                // Cari waktu HH:MM
                 const timeMatch = datePart.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
                 if (timeMatch) {
                     timePart = timeMatch[1];
@@ -187,16 +212,16 @@ function parseBerthingHTML(html, sourceName) {
             const info = {
                 source: sourceName,
                 voyage: voyageNumber,
-                date: parsedDate.date,    // Tanggal utama
-                time: parsedDate.time,    // Jam utama
-                eta: rawEta,              // Raw ETA
-                ata: rawAta,              // Raw ATA
-                etd: rawEtd,              // Raw ETD
-                status: berthingStatus,   // Enum status
-                statusDisplay: statusDisplay // Status asli dari website
+                date: parsedDate.date,    
+                time: parsedDate.time,    
+                eta: rawEta,              
+                ata: rawAta,              
+                etd: rawEtd,              
+                status: berthingStatus,   
+                statusDisplay: statusDisplay 
             };
             
-            // Simpan data ke Object
+            // Simpan ke result
             if (result[vesselName]) {
                 if (Array.isArray(result[vesselName])) {
                     result[vesselName].push(info);
@@ -206,7 +231,10 @@ function parseBerthingHTML(html, sourceName) {
             } else {
                 result[vesselName] = [info];
             }
+            parsedCount++;
         }
+        
+        console.log(`📊 ${sourceName}: ${parsedCount} vessels parsed`);
         
     } catch (error) {
         console.error(`❌ Error parsing ${sourceName}:`, error.message);

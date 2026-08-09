@@ -243,17 +243,12 @@
 <script>
 // ============ KONFIGURASI ============
 const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
-
-// === URL API BACKEND ===
 const API_BASE_URL = 'https://shipment-production-e5d1.up.railway.app';
-
 const ACCESS_PASSWORD = 'logistik2024';
 const REFRESH_INTERVAL = 30000;
 const BERTHING_REFRESH_INTERVAL = 120000;
-
 const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BERTHING', 'BL', 'CONTAINER', 'AJU', 'TRUCKING', 'ETA', 'POD', 'EXP DO', 'REMARK'];
 
-// ============ VARIABEL GLOBAL ============
 let currentData = [];
 let filteredData = [];
 let refreshTimer = null;
@@ -318,7 +313,6 @@ function isRowValid(rowData) {
             filledCount++;
         }
     }
-
     return filledCount >= 3;
 }
 
@@ -348,39 +342,31 @@ async function fetchBerthingData() {
 }
 
 // ===============================================
-// ============ FUNGSI GET BERTHING INFO (DIPERBAIKI LAGI) ============
+// ============ FUNGSI GET BERTHING INFO (VERSI PEMBERSIHAN NAMA) ============
 // ===============================================
 function getBerthingInfo(vesselName) {
     if (!vesselName || !berthingData) return null;
 
-    // 1. Bersihkan nama kapal dari Google Sheet (Hapus suffix voyage)
+    // 1. Bersihkan nama kapal dari Google Sheet
+    // Potong semua karakter setelah tanda "/" atau "-"
     let cleanName = vesselName.toUpperCase().trim();
-    
-    // Hapus semua karakter setelah tanda miring "/" (karena itu voyage)
     if (cleanName.includes('/')) {
         cleanName = cleanName.split('/')[0].trim();
     }
+    if (cleanName.includes('-')) {
+        cleanName = cleanName.split('-')[0].trim();
+    }
+    cleanName = cleanName.replace(/\s+/g, ' '); // Hapus spasi ganda
     
-    // Hapus spasi ganda
-    cleanName = cleanName.replace(/\s+/g, ' ');
-    
-    // 2. Loop semua data berthing
+    // 2. Loop data berthing
     for (const [key, infos] of Object.entries(berthingData)) {
-        // Bersihkan key (nama kapal dari database Berthing)
+        // Bersihkan key dari database (ubah underscore jadi spasi)
         let cleanKey = key.toUpperCase().trim();
         cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
-
-        // 3. LOGIKA PENCARIAN PALING LONGGA
-        // Cek apakah cleanName mengandung cleanKey ATAU cleanKey mengandung cleanName
-        // Ini mengatasi perbedaan spasi, huruf kapital, atau suffix angka
-        if (cleanName.includes(cleanKey) || cleanKey.includes(cleanName)) {
-            return infos;
-        }
         
-        // Coba hilangkan spasi keduanya lalu bandingkan (untuk mengatasi ejaan yang beda spasi)
-        let noSpaceName = cleanName.replace(/\s/g, '');
-        let noSpaceKey = cleanKey.replace(/\s/g, '');
-        if (noSpaceName.includes(noSpaceKey) || noSpaceKey.includes(noSpaceName)) {
+        // 3. Logika Pencocokan
+        // Cek apakah cleanName ada di dalam cleanKey, atau sebaliknya
+        if (cleanKey.includes(cleanName) || cleanName.includes(cleanKey)) {
             return infos;
         }
     }
@@ -515,10 +501,8 @@ class SecureSheetViewer {
 
     async initApp() {
         this.renderMainUI();
-        
         await fetchBerthingData();
         this.startBerthingRefresh();
-        
         await this.loadData();
         this.startAutoRefresh();
     }
@@ -740,14 +724,8 @@ class SecureSheetViewer {
 
                 if (col === 'BERTHING') {
                     const vesselName = row['VESSEL'] || '';
-                    
-                    // KIRIM NAMA KAPAL SAJA (HAPUS VOYAGE SEBELUM DIKIRIM)
-                    let cleanVesselName = vesselName;
-                    if (cleanVesselName.includes('/')) {
-                        cleanVesselName = cleanVesselName.split('/')[0].trim();
-                    }
-                    
-                    html += `<td>${renderBerthingHTML(cleanVesselName)}</td>\n`;
+                    // Kirim nama kapal ke fungsi render
+                    html += `<td>${renderBerthingHTML(vesselName)}</td>\n`;
                     continue;
                 }
 

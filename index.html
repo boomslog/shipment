@@ -342,26 +342,21 @@ async function fetchBerthingData() {
 }
 
 // ===============================================
-// ============ FUNGSI GET BERTHING INFO (FIX SPASI FINAL) ============
+// ============ FUNGSI GET BERTHING INFO (TEKNIK TANPA SPASI) ============
 // ===============================================
 function getBerthingInfo(vesselName) {
     if (!vesselName || !berthingData) return null;
 
-    // 1. Bersihkan nama kapal dari Google Sheet
-    // Potong semua karakter setelah tanda "/" 
-    let cleanName = vesselName.toUpperCase().trim();
-    if (cleanName.includes('/')) {
-        cleanName = cleanName.split('/')[0].trim(); // .trim() SANGAT PENTING DI SINI!
-    }
-    cleanName = cleanName.replace(/\s+/g, ' ').trim(); // Hapus spasi ganda dan di ujung
-    
+    // 1. Hapus semua karakter yang bukan huruf/angka (spasi, miring, strip, dll)
+    // Jadikan satu string tanpa spasi
+    let cleanName = vesselName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '').trim();
+
     // 2. Loop data berthing
     for (const [key, infos] of Object.entries(berthingData)) {
-        // Bersihkan key dari database
-        let cleanKey = key.toUpperCase().trim();
-        cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+        // Bersihkan key di database dengan cara yang sama
+        let cleanKey = key.toUpperCase().replace(/[^a-zA-Z0-9]/g, '').trim();
         
-        // 3. Logika Pencocokan
+        // 3. Logika Pencocokan Tanpa Spasi
         // Cek apakah cleanName ada di dalam cleanKey, atau sebaliknya
         if (cleanKey.includes(cleanName) || cleanName.includes(cleanKey)) {
             return infos;

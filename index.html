@@ -666,21 +666,44 @@ async function fetchBerthingData() {
         return result;
     }
 
-    function getBerthingInfo(vesselName) {
-        if (!vesselName || !berthingData) return null;
+   function getBerthingInfo(vesselName) {
+    if (!vesselName || !berthingData) return null;
 
-        let cleanName = vesselName.toUpperCase().trim();
-        cleanName = cleanName.split('/')[0].trim();
-
-        for (const [key, infos] of Object.entries(berthingData)) {
-            if (cleanName.includes(key) || key.includes(cleanName)) {
-                return infos;
-            }
+    // Bersihkan nama vessel
+    let cleanName = vesselName.toUpperCase().trim();
+    // Hapus kode setelah "/"
+    cleanName = cleanName.split('/')[0].trim();
+    // Hapus spasi berlebih
+    cleanName = cleanName.replace(/\s+/g, ' ');
+    
+    // Coba berbagai metode pencocokan
+    for (const [key, infos] of Object.entries(berthingData)) {
+        // Bersihkan key (hapus underscore, spasi, dll)
+        let cleanKey = key.toUpperCase().trim();
+        cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+        
+        // Cek apakah nama vessel ada di key (atau sebaliknya)
+        if (cleanName.includes(cleanKey) || cleanKey.includes(cleanName)) {
+            return infos;
         }
-
-        return null;
+        
+        // Coba cocokkan tanpa spasi
+        let noSpaceName = cleanName.replace(/\s/g, '');
+        let noSpaceKey = cleanKey.replace(/\s/g, '');
+        if (noSpaceName.includes(noSpaceKey) || noSpaceKey.includes(noSpaceName)) {
+            return infos;
+        }
+        
+        // Coba cocokkan huruf awal
+        let initials = cleanName.split(' ').map(w => w[0]).join('');
+        let keyInitials = cleanKey.split(' ').map(w => w[0]).join('');
+        if (initials === keyInitials && initials.length > 2) {
+            return infos;
+        }
     }
 
+    return null;
+}
     function renderBerthingHTML(vesselName) {
         const infos = getBerthingInfo(vesselName);
         if (!infos || infos.length === 0) {

@@ -10,12 +10,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 
-// Health check
 app.get('/', (req, res) => {
     res.send('🚢 Shipment Booms API is running!');
 });
 
-// Endpoint API Berthing
+// ==========================================
+// ENDPOINT UTAMA
+// ==========================================
 app.get('/api/berthing', async (req, res) => {
     try {
         console.log('📡 Backend mengambil data berthing...');
@@ -32,9 +33,8 @@ app.get('/api/berthing', async (req, res) => {
         for (const source of sources) {
             try {
                 console.log(`🔄 Fetching ${source.name}...`);
-                
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 15000); // Timeout 15 detik
+                const timeout = setTimeout(() => controller.abort(), 15000);
 
                 const response = await fetch(source.url, {
                     headers: {
@@ -47,16 +47,13 @@ app.get('/api/berthing', async (req, res) => {
                 clearTimeout(timeout);
                 
                 if (!response.ok) {
-                    console.warn(`⚠️ ${source.name} HTTP ${response.status} - Lewati`);
+                    console.warn(`⚠️ ${source.name} HTTP ${response.status}`);
                     continue;
                 }
                 
                 const html = await response.text();
-                console.log(`✅ ${source.name} berhasil, panjang: ${html.length} bytes`);
-                
                 const parsed = parseBerthingHTML(html, source.name);
                 
-                // Gabungkan data
                 for (const [vessel, info] of Object.entries(parsed)) {
                     if (allData[vessel]) {
                         if (Array.isArray(allData[vessel])) {
@@ -69,32 +66,21 @@ app.get('/api/berthing', async (req, res) => {
                     }
                 }
             } catch (error) {
-                console.error(`❌ ${source.name} gagal (tidak mempengaruhi server):`, error.message);
+                console.error(`❌ ${source.name} gagal:`, error.message);
             }
         }
 
         console.log(`📊 Total vessels berhasil diparse: ${Object.keys(allData).length}`);
-
-        res.json({
-            success: true,
-            data: allData,
-            timestamp: new Date().toISOString()
-        });
+        res.json({ success: true, data: allData, timestamp: new Date().toISOString() });
 
     } catch (error) {
         console.error('❌ Error fatal di /api/berthing:', error.message);
-        // Pastikan server tidak crash, tetap kirim response kosong
-        res.status(200).json({ 
-            success: true, 
-            data: {}, 
-            timestamp: new Date().toISOString(),
-            warning: 'Terjadi error saat parsing, data kosong'
-        });
+        res.status(200).json({ success: true, data: {}, timestamp: new Date().toISOString(), warning: 'Partial data' });
     }
 });
 
 // ==========================================
-// PARSER HTML
+// PARSER HTML PINTAR (Membaca Semua Website)
 // ==========================================
 function parseBerthingHTML(html, sourceName) {
     const result = {};
@@ -108,7 +94,7 @@ function parseBerthingHTML(html, sourceName) {
         for (let i = 0; i < tables.length; i++) {
             const text = $(tables[i]).text().toLowerCase();
             if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule') || 
-                text.includes('voyage') || text.includes('etb')) {
+                text.includes('voyage') || text.includes('etb') || text.includes('arrival')) {
                 targetTable = tables[i];
                 break;
             }
@@ -119,60 +105,67 @@ function parseBerthingHTML(html, sourceName) {
         const rows = $(targetTable).find('tr');
         if (rows.length < 2) return result;
         
+        // Ambil header
         const headers = [];
         $(rows[0]).find('th, td').each((i, cell) => {
             headers.push($(cell).text().trim().toLowerCase());
         });
         
-        let vesselIdx = -1, voyageIdx = -1, etaIdx = -1, ataIdx = -1, statusIdx = -1, etdIdx = -1;
+        // === INDEKS KOLOM (UNIVERSAL UNTUK 4 WEBSITE) ===
+        let vesselIdx = -1, berthingIdx = -1, statusIdx = -1, etdIdx = -1;
         
         for (let i = 0; i < headers.length; i++) {
             const h = headers[i];
+            
+            // Cari Nama Kapal
             if (h.includes('vessel') || h.includes('kapal') || h.includes('nama') || h.includes('mv')) vesselIdx = i;
-            if (h.includes('voyage') || h.includes('voy')) voyageIdx = i;
-            if (h.includes('eta') || h.includes('etb') || h.includes('arrival')) etaIdx = i;
-            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) ataIdx = i;
-            if (h.includes('status') || h.includes('keterangan') || h.includes('activity')) statusIdx = i;
-            if (h.includes('etd') || h.includes('departure')) etdIdx = i;
+            
+            // Cari Tanggal Berthing / Sandar (Prioritas: Berthing > ATA > Tanggal Sandar)
+            if (h.includes('berthing') || h.includes('sand')) berthingIdx = i; // JICT, TPK KOJA
+            if (h.includes('ata')) berthingIdx = i; // NPCT1
+            if (h.includes('tanggal sandar')) berthingIdx = i; // MALT
+            
+            // Cari Status (Plan, Register, Sailing, dll)
+            if (h.includes('status') || h.includes('keterangan')) statusIdx = i; // JICT, NPCT1
+            
+            // Cari ETD / Departure
+            if (h.includes('etd') || h.includes('departure') || h.includes('berangkat')) etdIdx = i;
         }
         
-        if (vesselIdx === -1) {
-            if (headers.length > 1 && headers[1].includes('name')) vesselIdx = 1;
-            else if (headers.length > 0) vesselIdx = 0;
-        }
-        
+        // Jika kolom kapal tidak ketemu, coba kolom ke-1
+        if (vesselIdx === -1 && headers.length > 0) vesselIdx = 0;
         if (vesselIdx === -1) return result;
         
+        // Parse data
         for (let i = 1; i < rows.length; i++) {
             const cells = $(rows[i]).find('td');
             if (cells.length === 0 || cells.length <= vesselIdx) continue;
             
             let vesselName = $(cells[vesselIdx]).text().trim();
             if (!vesselName || vesselName === '-' || vesselName.length < 3) continue;
-            
             vesselName = vesselName.replace(/^MV\.\s*/i, '').trim().toUpperCase();
-            
-            const rawVoyage = voyageIdx !== -1 && voyageIdx < cells.length ? $(cells[voyageIdx]).text().trim() : '';
-            const rawEta = etaIdx !== -1 && etaIdx < cells.length ? $(cells[etaIdx]).text().trim() : '';
-            const rawAta = ataIdx !== -1 && ataIdx < cells.length ? $(cells[ataIdx]).text().trim() : '';
-            const rawStatus = statusIdx !== -1 && statusIdx < cells.length ? $(cells[statusIdx]).text().trim() : '';
-            const rawEtd = etdIdx !== -1 && etdIdx < cells.length ? $(cells[etdIdx]).text().trim() : '';
 
+            // Ambil data penting
+            let rawBerthing = berthingIdx !== -1 && berthingIdx < cells.length ? $(cells[berthingIdx]).text().trim() : '';
+            let rawStatus = statusIdx !== -1 && statusIdx < cells.length ? $(cells[statusIdx]).text().trim() : '';
+            let rawEtd = etdIdx !== -1 && etdIdx < cells.length ? $(cells[etdIdx]).text().trim() : '';
+
+            // 1. Tentukan Status dengan mapping yang lebih akurat
             let berthingStatus = 'scheduled';
             let statusDisplay = rawStatus;
-            
             if (rawStatus) {
                 const s = rawStatus.toLowerCase();
                 if (s.includes('sailing') || s.includes('berlayar')) berthingStatus = 'sailing';
                 else if (s.includes('working') || s.includes('bongkar') || s.includes('loading')) berthingStatus = 'working';
                 else if (s.includes('active') || s.includes('aktif')) berthingStatus = 'active';
-                else if (s.includes('register') || s.includes('terdaftar')) berthingStatus = 'register';
-                else if (s.includes('plan') || s.includes('rencana')) berthingStatus = 'scheduled';
+                else if (s.includes('register')) berthingStatus = 'register';
+                else if (s.includes('plan')) berthingStatus = 'scheduled';
                 else if (s.includes('delay') || s.includes('tunda')) berthingStatus = 'delayed';
                 else if (s.includes('complete') || s.includes('selesai')) berthingStatus = 'completed';
                 else if (s.includes('sandar') || s.includes('berthed')) berthingStatus = 'berthing';
             }
 
+            // 2. Ekstrak Tanggal dan Jam
             const extractDateTime = (str) => {
                 if (!str) return { date: '', time: '' };
                 let datePart = str;
@@ -185,28 +178,17 @@ function parseBerthingHTML(html, sourceName) {
                 return { date: datePart, time: timePart };
             };
 
-            const mainDateRaw = rawAta || rawEta || '';
-            const parsedDate = extractDateTime(mainDateRaw);
-            const parsedAta = extractDateTime(rawAta);
-            const parsedEta = extractDateTime(rawEta);
+            const parsedBerthing = extractDateTime(rawBerthing);
             const parsedEtd = extractDateTime(rawEtd);
 
-            let voyageNumber = '';
-            if (rawVoyage) {
-                const match = rawVoyage.match(/(\d+)/);
-                if (match) voyageNumber = match[1];
-            }
-
+            // 3. Simpan dalam Format JSON
             const info = {
                 source: sourceName,
-                voyage: voyageNumber,
-                date: parsedDate.date,    
-                time: parsedDate.time,    
-                eta: rawEta,              
-                ata: rawAta,              
-                etd: rawEtd,              
-                status: berthingStatus,   
-                statusDisplay: statusDisplay 
+                date: parsedBerthing.date,    // Tanggal Sandar/Berthing
+                time: parsedBerthing.time,    // Jam Sandar/Berthing
+                etd: rawEtd,                  // ETD/Departure
+                status: berthingStatus,       // Status (enum)
+                statusDisplay: statusDisplay  // Status asli dari website
             };
             
             if (result[vesselName]) {

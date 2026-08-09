@@ -10,36 +10,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 
-// Health check endpoint (biar Railway tahu server hidup)
+// Health check
 app.get('/', (req, res) => {
     res.send('🚢 Shipment Booms API is running!');
 });
 
-// Endpoint untuk mengambil data berthing
+// Endpoint API Berthing
 app.get('/api/berthing', async (req, res) => {
     try {
         console.log('📡 Fetching berthing data from all sources...');
         
+        // ============ LANGSUNG AKSES WEBSITE (TANPA CORS PROXY) ============
         const sources = [
             {
                 url: 'https://www.jict.co.id/vessel-schedule',
-                name: 'JICT',
-                parser: parseJICT
+                name: 'JICT'
             },
             {
                 url: 'https://malt300.com/Layanan/jadwalKapal',
-                name: 'MALT',
-                parser: parseMALT
+                name: 'MALT'
             },
             {
                 url: 'https://www.npct1.co.id/vessel-schedule',
-                name: 'NPCT1',
-                parser: parseNPCT1
+                name: 'NPCT1'
             },
             {
                 url: 'https://www.tpkkoja.co.id/vessel-schedule/',
-                name: 'TPK KOJA',
-                parser: parseTPKKOJA
+                name: 'TPK KOJA'
             }
         ];
 
@@ -48,19 +45,26 @@ app.get('/api/berthing', async (req, res) => {
 
         for (const source of sources) {
             try {
-                console.log(`Fetching ${source.name}...`);
+                console.log(`🔄 Fetching ${source.name} from: ${source.url}`);
+                
                 const response = await fetch(source.url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                    },
-                    timeout: 10000
+                    }
                 });
                 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const html = await response.text();
+                if (!response.ok) {
+                    console.error(`❌ ${source.name} HTTP ${response.status}`);
+                    continue;
+                }
                 
-                const parsed = source.parser(html, source.name);
+                const html = await response.text();
+                console.log(`✅ ${source.name} berhasil, panjang: ${html.length} bytes`);
+                
+                const parsed = parseBerthingHTML(html, source.name);
+                console.log(`📊 ${source.name} parsed: ${Object.keys(parsed).length} vessels`);
+                
                 for (const [vessel, info] of Object.entries(parsed)) {
                     if (allData[vessel]) {
                         if (Array.isArray(allData[vessel])) {
@@ -73,12 +77,13 @@ app.get('/api/berthing', async (req, res) => {
                     }
                 }
                 successCount++;
-                console.log(`✅ ${source.name} berhasil: ${Object.keys(parsed).length} vessel`);
             } catch (error) {
                 console.error(`❌ ${source.name} gagal:`, error.message);
             }
         }
 
+        console.log(`📊 Total vessels: ${Object.keys(allData).length}`);
+        
         res.json({
             success: true,
             data: allData,
@@ -90,75 +95,106 @@ app.get('/api/berthing', async (req, res) => {
         console.error('❌ Error di /api/berthing:', error.message);
         res.status(500).json({ 
             success: false, 
-            error: error.message,
-            stack: error.stack 
+            error: error.message
         });
     }
 });
 
-// ============ PARSER UNTUK MASING-MASING SUMBER ============
-
-function parseJICT(html, sourceName) {
+// ============ PARSER HTML ============
+function parseBerthingHTML(html, sourceName) {
     const result = {};
     try {
         const $ = cheerio.load(html);
         
+        // Cari semua tabel
         const tables = $('table');
         let targetTable = null;
         
-        tables.each((i, table) => {
-            const text = $(table).text().toLowerCase();
-            if (text.includes('vessel') && text.includes('voyage')) {
-                targetTable = table;
-                return false;
+        for (let i = 0; i < tables.length; i++) {
+            const text = $(tables[i]).text().toLowerCase();
+            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule') || 
+                text.includes('voyage') || text.includes('jadwal')) {
+                targetTable = tables[i];
+                break;
             }
-        });
+        }
         
-        if (!targetTable) return result;
+        if (!targetTable) {
+            console.warn(`⚠️ Tidak ditemukan tabel di ${sourceName}`);
+            return result;
+        }
         
         const rows = $(targetTable).find('tr');
         if (rows.length < 2) return result;
         
+        // Ambil header
         const headers = [];
         $(rows[0]).find('th, td').each((i, cell) => {
             headers.push($(cell).text().trim().toLowerCase());
         });
         
-        let vesselIdx = -1, voyageIdx = -1, arrivalIdx = -1, berthingIdx = -1, statusIdx = -1;
+        // Cari indeks kolom penting
+        let vesselIdx = -1, voyageIdx = -1, etaIdx = -1, ataIdx = -1, statusIdx = -1, etdIdx = -1;
         
-        headers.forEach((h, i) => {
-            if (h.includes('vessel')) vesselIdx = i;
-            if (h.includes('voyage')) voyageIdx = i;
-            if (h.includes('arrival')) arrivalIdx = i;
-            if (h.includes('berthing')) berthingIdx = i;
-            if (h.includes('status')) statusIdx = i;
-        });
+        for (let i = 0; i < headers.length; i++) {
+            const h = headers[i];
+            if (h.includes('vessel') || h.includes('kapal') || h.includes('nama')) vesselIdx = i;
+            if (h.includes('voyage') || h.includes('voy')) voyageIdx = i;
+            if (h.includes('eta') || h.includes('etb')) etaIdx = i;
+            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) ataIdx = i;
+            if (h.includes('status') || h.includes('keterangan')) statusIdx = i;
+            if (h.includes('etd') || h.includes('departure')) etdIdx = i;
+        }
         
-        if (vesselIdx === -1) return result;
+        // Jika vesselIdx tidak ditemukan, coba cari manual
+        if (vesselIdx === -1) {
+            for (let i = 0; i < headers.length; i++) {
+                const h = headers[i];
+                if (h.includes('name') || h.includes('vessel')) {
+                    vesselIdx = i;
+                    break;
+                }
+            }
+        }
         
-        for (let i = 1; i < Math.min(rows.length, 50); i++) {
+        if (vesselIdx === -1) {
+            console.warn(`⚠️ Tidak ditemukan kolom vessel di ${sourceName}`);
+            return result;
+        }
+        
+        // Parse data
+        let parsedCount = 0;
+        for (let i = 1; i < rows.length; i++) {
             const cells = $(rows[i]).find('td');
             if (cells.length === 0) continue;
             
             let vesselName = $(cells[vesselIdx]).text().trim();
-            if (!vesselName || vesselName === '-') continue;
+            if (!vesselName || vesselName === '-' || vesselName === '') continue;
             
-            vesselName = vesselName.toUpperCase().trim();
+            // Bersihkan nama vessel
+            vesselName = vesselName.replace(/^MV\.\s*/i, '').replace(/^\s*MV\s*/i, '').trim().toUpperCase();
             
-            const voyage = voyageIdx !== -1 ? $(cells[voyageIdx]).text().trim() : '';
-            const arrival = arrivalIdx !== -1 ? $(cells[arrivalIdx]).text().trim() : '';
-            const berthing = berthingIdx !== -1 ? $(cells[berthingIdx]).text().trim() : '';
-            const status = statusIdx !== -1 ? $(cells[statusIdx]).text().trim() : '';
+            // Ambil data kolom
+            const voyage = voyageIdx !== -1 && voyageIdx < cells.length ? $(cells[voyageIdx]).text().trim() : '';
+            const eta = etaIdx !== -1 && etaIdx < cells.length ? $(cells[etaIdx]).text().trim() : '';
+            const ata = ataIdx !== -1 && ataIdx < cells.length ? $(cells[ataIdx]).text().trim() : '';
+            const status = statusIdx !== -1 && statusIdx < cells.length ? $(cells[statusIdx]).text().trim() : '';
+            const etd = etdIdx !== -1 && etdIdx < cells.length ? $(cells[etdIdx]).text().trim() : '';
             
+            // Tentukan status
             let berthingStatus = 'scheduled';
             if (status) {
                 const s = status.toLowerCase();
                 if (s.includes('sailing')) berthingStatus = 'sailing';
-                else if (s.includes('working')) berthingStatus = 'berthing';
+                else if (s.includes('working') || s.includes('bongkar')) berthingStatus = 'berthing';
+                else if (s.includes('active')) berthingStatus = 'active';
+                else if (s.includes('register')) berthingStatus = 'register';
                 else if (s.includes('plan')) berthingStatus = 'scheduled';
+                else if (s.includes('delay') || s.includes('tunda')) berthingStatus = 'delayed';
             }
             
-            let date = berthing || arrival || '';
+            // Ekstrak tanggal dan jam
+            let date = ata || eta || '';
             let time = '';
             const timeMatch = date.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
             if (timeMatch) {
@@ -173,263 +209,12 @@ function parseJICT(html, sourceName) {
                 time: time,
                 status: berthingStatus,
                 statusDisplay: status,
-                ata: berthing,
-                eta: arrival
-            };
-            
-            if (result[vesselName]) {
-                if (Array.isArray(result[vesselName])) {
-                    result[vesselName].push(info);
-                } else {
-                    result[vesselName] = [result[vesselName], info];
-                }
-            } else {
-                result[vesselName] = [info];
-            }
-        }
-    } catch (e) {
-        console.error(`Error parsing JICT:`, e.message);
-    }
-    return result;
-}
-
-function parseMALT(html, sourceName) {
-    const result = {};
-    try {
-        const $ = cheerio.load(html);
-        
-        const tables = $('table');
-        let targetTable = null;
-        
-        tables.each((i, table) => {
-            const text = $(table).text().toLowerCase();
-            if (text.includes('mv.') && text.includes('voy')) {
-                targetTable = table;
-                return false;
-            }
-        });
-        
-        if (!targetTable) return result;
-        
-        const rows = $(targetTable).find('tr');
-        if (rows.length < 2) return result;
-        
-        for (let i = 1; i < Math.min(rows.length, 50); i++) {
-            const cells = $(rows[i]).find('td');
-            if (cells.length < 5) continue;
-            
-            let vesselName = $(cells[1]).text().trim();
-            if (!vesselName || vesselName === '-') continue;
-            
-            vesselName = vesselName.replace(/^MV\.\s*/i, '').trim().toUpperCase();
-            
-            const voyageS = $(cells[3]).text().trim();
-            const voyageN = $(cells[4]).text().trim();
-            const etb = $(cells[5]).text().trim();
-            const ata = $(cells[6]).text().trim();
-            const etd = $(cells[7]).text().trim();
-            
-            let date = ata || etb || '';
-            let time = '';
-            const timeMatch = date.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-            if (timeMatch) {
-                time = timeMatch[1];
-                date = date.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
-            }
-            
-            const info = {
-                source: sourceName,
-                voyage: voyageN || voyageS,
-                date: date,
-                time: time,
-                status: 'scheduled',
-                statusDisplay: '',
                 ata: ata,
-                eta: etb,
-                etd: etd
-            };
-            
-            if (result[vesselName]) {
-                if (Array.isArray(result[vesselName])) {
-                    result[vesselName].push(info);
-                } else {
-                    result[vesselName] = [result[vesselName], info];
-                }
-            } else {
-                result[vesselName] = [info];
-            }
-        }
-    } catch (e) {
-        console.error(`Error parsing MALT:`, e.message);
-    }
-    return result;
-}
-
-function parseNPCT1(html, sourceName) {
-    const result = {};
-    try {
-        const $ = cheerio.load(html);
-        
-        const tables = $('table');
-        let targetTable = null;
-        
-        tables.each((i, table) => {
-            const text = $(table).text().toLowerCase();
-            if (text.includes('vessel') && text.includes('etb')) {
-                targetTable = table;
-                return false;
-            }
-        });
-        
-        if (!targetTable) return result;
-        
-        const rows = $(targetTable).find('tr');
-        if (rows.length < 2) return result;
-        
-        const headers = [];
-        $(rows[0]).find('th, td').each((i, cell) => {
-            headers.push($(cell).text().trim().toLowerCase());
-        });
-        
-        let vesselIdx = -1, statusIdx = -1, etbIdx = -1, ataIdx = -1, etdIdx = -1;
-        
-        headers.forEach((h, i) => {
-            if (h === 'vessel') vesselIdx = i;
-            if (h === 'status') statusIdx = i;
-            if (h === 'etb') etbIdx = i;
-            if (h === 'ata') ataIdx = i;
-            if (h === 'etd') etdIdx = i;
-        });
-        
-        if (vesselIdx === -1) return result;
-        
-        for (let i = 1; i < Math.min(rows.length, 50); i++) {
-            const cells = $(rows[i]).find('td');
-            if (cells.length === 0) continue;
-            
-            let vesselName = $(cells[vesselIdx]).text().trim();
-            if (!vesselName || vesselName === '-') continue;
-            
-            vesselName = vesselName.toUpperCase().trim();
-            
-            const status = statusIdx !== -1 ? $(cells[statusIdx]).text().trim() : '';
-            const etb = etbIdx !== -1 ? $(cells[etbIdx]).text().trim() : '';
-            const ata = ataIdx !== -1 ? $(cells[ataIdx]).text().trim() : '';
-            const etd = etdIdx !== -1 ? $(cells[etdIdx]).text().trim() : '';
-            
-            let berthingStatus = 'scheduled';
-            if (status) {
-                const s = status.toLowerCase();
-                if (s.includes('active')) berthingStatus = 'active';
-                else if (s.includes('register')) berthingStatus = 'register';
-            }
-            
-            let date = ata || etb || '';
-            let time = '';
-            const timeMatch = date.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-            if (timeMatch) {
-                time = timeMatch[1];
-                date = date.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
-            }
-            
-            const info = {
-                source: sourceName,
-                voyage: '',
-                date: date,
-                time: time,
-                status: berthingStatus,
-                statusDisplay: status,
-                ata: ata,
-                eta: etb,
-                etd: etd
-            };
-            
-            if (result[vesselName]) {
-                if (Array.isArray(result[vesselName])) {
-                    result[vesselName].push(info);
-                } else {
-                    result[vesselName] = [result[vesselName], info];
-                }
-            } else {
-                result[vesselName] = [info];
-            }
-        }
-    } catch (e) {
-        console.error(`Error parsing NPCT1:`, e.message);
-    }
-    return result;
-}
-
-function parseTPKKOJA(html, sourceName) {
-    const result = {};
-    try {
-        const $ = cheerio.load(html);
-        
-        const tables = $('table');
-        let targetTable = null;
-        
-        tables.each((i, table) => {
-            const text = $(table).text().toLowerCase();
-            if (text.includes('vessel') && text.includes('eta')) {
-                targetTable = table;
-                return false;
-            }
-        });
-        
-        if (!targetTable) return result;
-        
-        const rows = $(targetTable).find('tr');
-        if (rows.length < 2) return result;
-        
-        const headers = [];
-        $(rows[0]).find('th, td').each((i, cell) => {
-            headers.push($(cell).text().trim().toLowerCase());
-        });
-        
-        let vesselIdx = -1, etaIdx = -1, etdIdx = -1, berthingIdx = -1;
-        
-        headers.forEach((h, i) => {
-            if (h === 'vessel name') vesselIdx = i;
-            if (h === 'eta') etaIdx = i;
-            if (h === 'etd') etdIdx = i;
-            if (h.includes('berthing')) berthingIdx = i;
-        });
-        
-        if (vesselIdx === -1) return result;
-        
-        for (let i = 1; i < Math.min(rows.length, 50); i++) {
-            const cells = $(rows[i]).find('td');
-            if (cells.length === 0) continue;
-            
-            let vesselName = $(cells[vesselIdx]).text().trim();
-            if (!vesselName || vesselName === '-') continue;
-            
-            vesselName = vesselName.toUpperCase().trim();
-            
-            const eta = etaIdx !== -1 ? $(cells[etaIdx]).text().trim() : '';
-            const etd = etdIdx !== -1 ? $(cells[etdIdx]).text().trim() : '';
-            const berthing = berthingIdx !== -1 ? $(cells[berthingIdx]).text().trim() : '';
-            
-            let date = berthing || eta || '';
-            let time = '';
-            const timeMatch = date.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-            if (timeMatch) {
-                time = timeMatch[1];
-                date = date.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
-            }
-            
-            const info = {
-                source: sourceName,
-                voyage: '',
-                date: date,
-                time: time,
-                status: 'scheduled',
-                statusDisplay: '',
-                ata: berthing,
                 eta: eta,
                 etd: etd
             };
             
+            // Simpan ke result
             if (result[vesselName]) {
                 if (Array.isArray(result[vesselName])) {
                     result[vesselName].push(info);
@@ -439,10 +224,15 @@ function parseTPKKOJA(html, sourceName) {
             } else {
                 result[vesselName] = [info];
             }
+            parsedCount++;
         }
-    } catch (e) {
-        console.error(`Error parsing TPK KOJA:`, e.message);
+        
+        console.log(`📊 ${sourceName}: ${parsedCount} vessels parsed`);
+        
+    } catch (error) {
+        console.error(`❌ Error parsing ${sourceName}:`, error.message);
     }
+    
     return result;
 }
 

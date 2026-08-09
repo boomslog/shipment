@@ -241,9 +241,35 @@
 <div id="app"></div>
 
 <script>
-    // ============ KONFIGURASI ============
-    const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
+   // ============ KONFIGURASI ============
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
 
+// ============ URL API BACKEND ============
+// SEMENTARA: pakai localhost, nanti kita ganti dengan URL Render
+const API_BASE_URL = 'http://localhost:3000';
+
+// ============ FUNGSI FETCH BERTHING DATA ============
+async function fetchBerthingData() {
+    try {
+        console.log('📡 Mengambil data berthing dari backend...');
+        const response = await fetch(`${API_BASE_URL}/api/berthing`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const result = await response.json();
+        if (result.success) {
+            berthingData = result.data;
+            isBerthingLoaded = true;
+            berthingLastUpdate = new Date(result.timestamp);
+            console.log(`✅ Berthing loaded: ${Object.keys(berthingData).length} vessels`);
+            return berthingData;
+        } else {
+            throw new Error(result.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('❌ Gagal fetch berthing:', error.message);
+        return {};
+    }
+}
     // ============ CORS PROXY ============
     const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 
@@ -372,7 +398,6 @@
                 const html = await response.text();
                 console.log(`Berhasil mengambil data dari ${source.name}, panjang: ${html.length} characters`);
                 
-                const parsed = parseBerthingHTML(html, source);
                 
                 for (const [vessel, info] of Object.entries(parsed)) {
                     if (allData[vessel]) {

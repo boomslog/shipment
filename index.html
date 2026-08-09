@@ -348,81 +348,39 @@ async function fetchBerthingData() {
 }
 
 // ===============================================
-// ============ FUNGSI GET BERTHING INFO (DIPERBAIKI) ============
+// ============ FUNGSI GET BERTHING INFO (DIPERBAIKI LAGI) ============
 // ===============================================
-function getBerthingInfo(vesselName, voyageNumber) {
+function getBerthingInfo(vesselName) {
     if (!vesselName || !berthingData) return null;
 
-    // 1. Bersihkan nama kapal dari Google Sheet
+    // 1. Bersihkan nama kapal dari Google Sheet (Hapus suffix voyage)
     let cleanName = vesselName.toUpperCase().trim();
-    cleanName = cleanName.replace(/\s+/g, ' '); // Hapus spasi ganda
     
-    // Ekstrak kode awal kapal (Misal: "MERKUR" dari "MERKUR FJORD")
-    let namePrefix = cleanName.split(' ')[0] || '';
-    // Jika nama panjang, ambil 2 kata awal (contoh: "X-PRESS AQUARIUS")
-    let nameParts = cleanName.split(' ');
-    let keyName1 = nameParts.slice(0, 2).join(' '); // 2 kata awal
-    let keyName2 = nameParts.slice(0, 3).join(' '); // 3 kata awal
-
-    // 2. Ekstrak Voyage dari Excel (3 digit angka awal)
-    let cleanVoyage = '';
-    if (voyageNumber) {
-        const strVoy = voyageNumber.toString().trim();
-        const match = strVoy.match(/(\d+)/);
-        if (match) cleanVoyage = match[1].substring(0, 3); // Ambil 3 angka awal
+    // Hapus semua karakter setelah tanda miring "/" (karena itu voyage)
+    if (cleanName.includes('/')) {
+        cleanName = cleanName.split('/')[0].trim();
     }
-
-    // 3. Loop data berthing
+    
+    // Hapus spasi ganda
+    cleanName = cleanName.replace(/\s+/g, ' ');
+    
+    // 2. Loop semua data berthing
     for (const [key, infos] of Object.entries(berthingData)) {
-        // Bersihkan key dari database Berthing
+        // Bersihkan key (nama kapal dari database Berthing)
         let cleanKey = key.toUpperCase().trim();
         cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
-        
-        // Ambil kode awal (Prefix) kapal di data berthing
-        let keyPrefix = cleanKey.split(' ')[0] || '';
-        let keyParts = cleanKey.split(' ');
-        let keyName1 = keyParts.slice(0, 2).join(' ');
-        let keyName2 = keyParts.slice(0, 3).join(' ');
 
-        // ===== LOGIKA PENCARIAN UTAMA =====
-        let isMatch = false;
-
-        // A. Cocokkan 3 kata awal (paling akurat)
-        if (keyName2.length > 0 && keyName2 === keyName2) {
-            if (cleanName.includes(keyName2) || keyName2.includes(cleanName)) isMatch = true;
+        // 3. LOGIKA PENCARIAN PALING LONGGA
+        // Cek apakah cleanName mengandung cleanKey ATAU cleanKey mengandung cleanName
+        // Ini mengatasi perbedaan spasi, huruf kapital, atau suffix angka
+        if (cleanName.includes(cleanKey) || cleanKey.includes(cleanName)) {
+            return infos;
         }
         
-        // B. Cocokkan 2 kata awal
-        if (!isMatch && keyName1.length > 0) {
-            if (cleanName.includes(keyName1) || keyName1.includes(cleanName)) isMatch = true;
-        }
-
-        // C. Cocokkan prefix / 1 kata awal (jika nama kapal pendek)
-        if (!isMatch && namePrefix.length >= 4) {
-            if (cleanName.includes(keyPrefix) || keyPrefix.includes(cleanName)) isMatch = true;
-        }
-
-        // D. Cocokkan kombinasi NAMA + 3 ANGKA VOYAGE (Sesuai saran Anda)
-        if (!isMatch && cleanVoyage.length === 3) {
-            // Cek apakah prefix nama cocok DAN voyage cocok
-            if (cleanName.includes(keyPrefix) || keyPrefix.includes(cleanName)) {
-                // Cek voyage berthing
-                const infosArray = Array.isArray(infos) ? infos : [infos];
-                for (const info of infosArray) {
-                    if (info.voyage) {
-                        let infVoy = info.voyage.toString().trim().match(/(\d+)/);
-                        let infVoyPrefix = infVoy ? infVoy[1].substring(0, 3) : '';
-                        if (infVoyPrefix === cleanVoyage) {
-                            isMatch = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Jika match, kembalikan data
-        if (isMatch) {
+        // Coba hilangkan spasi keduanya lalu bandingkan (untuk mengatasi ejaan yang beda spasi)
+        let noSpaceName = cleanName.replace(/\s/g, '');
+        let noSpaceKey = cleanKey.replace(/\s/g, '');
+        if (noSpaceName.includes(noSpaceKey) || noSpaceKey.includes(noSpaceName)) {
             return infos;
         }
     }
@@ -430,8 +388,8 @@ function getBerthingInfo(vesselName, voyageNumber) {
     return null;
 }
 
-function renderBerthingHTML(vesselName, voyageNumber) {
-    const infos = getBerthingInfo(vesselName, voyageNumber);
+function renderBerthingHTML(vesselName) {
+    const infos = getBerthingInfo(vesselName);
     if (!infos || infos.length === 0) {
         return `<span class="berthing-info berthing-unknown">⚪ Tidak tersedia</span>`;
     }
@@ -782,13 +740,14 @@ class SecureSheetViewer {
 
                 if (col === 'BERTHING') {
                     const vesselName = row['VESSEL'] || '';
-                    // Parse Voyage dari kolom VESSEL (misal: "X-PRESS AQUARIUS / 2630S" -> ambil 2630)
-                    let voyageNum = '';
-                    const voyageMatch = vesselName.match(/\/(\d+)/);
-                    if (voyageMatch) voyageNum = voyageMatch[1];
                     
-                    // KIRIM VOYAGE NUMBER KE FUNGSI PENCARIAN
-                    html += `<td>${renderBerthingHTML(vesselName, voyageNum)}</td>\n`;
+                    // KIRIM NAMA KAPAL SAJA (HAPUS VOYAGE SEBELUM DIKIRIM)
+                    let cleanVesselName = vesselName;
+                    if (cleanVesselName.includes('/')) {
+                        cleanVesselName = cleanVesselName.split('/')[0].trim();
+                    }
+                    
+                    html += `<td>${renderBerthingHTML(cleanVesselName)}</td>\n`;
                     continue;
                 }
 

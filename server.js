@@ -1,249 +1,806 @@
-const express = require('express');
-const cors = require('cors');
-const fetch = require('node-fetch');
-const cheerio = require('cheerio');
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>SHIPMENT BOOMS - Live Tracking</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #e9ecef;
+            padding: 10px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #1e3c72;
+            color: white;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+        .status {
+            background: rgba(255,255,255,0.15);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .online {
+            width: 7px; height: 7px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .controls {
+            padding: 10px 12px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-primary { background: #1e3c72; color: white; }
+        .btn-primary:hover { background: #0f2b52; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #b02a37; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e7e34; }
+        .search-box {
+            flex: 1;
+            min-width: 120px;
+            padding: 5px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .login-container {
+            max-width: 340px;
+            margin: 60px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 28px 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .login-container h2 { margin-bottom: 14px; color: #1e3c72; font-size: 20px; }
+        .login-input {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 8px 0;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .error { color: #dc3545; margin-top: 10px; font-size: 13px; }
+        .table-wrapper {
+            overflow-x: auto;
+            padding: 8px 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+            font-size: 12px;
+            border: 1px solid #000000;
+            table-layout: auto;
+        }
+        th {
+            background: #1e3c72;
+            color: white;
+            padding: 8px 5px;
+            text-align: center;
+            border: 1px solid #000000;
+            font-weight: 600;
+            font-size: 11px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        td {
+            padding: 6px 5px;
+            border: 1px solid #000000;
+            vertical-align: middle;
+            word-break: break-word;
+            white-space: normal;
+            line-height: 1.3;
+            font-size: 11px;
+        }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e8f4f8; }
+        .eta-lewat { background-color: #f8d7da; color: #dc3545; font-weight: bold; }
+        .berthing-info {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 2px 0;
+            max-width: 220px;
+        }
+        .berthing-scheduled { background: #fff3cd; color: #856404; }
+        .berthing-berthing { background: #d4edda; color: #155724; }
+        .berthing-delayed { background: #f8d7da; color: #721c24; }
+        .berthing-completed { background: #cce5ff; color: #004085; }
+        .berthing-unknown { background: #e2e3e5; color: #383d41; }
+        .berthing-working { background: #d1ecf1; color: #0c5460; }
+        .berthing-sailing { background: #d6d8db; color: #383d41; }
+        .berthing-register { background: #fef3cd; color: #856404; }
+        .berthing-active { background: #d4edda; color: #155724; }
+        .info-bar {
+            padding: 6px 12px;
+            background: #e9ecef;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 4px;
+            border-top: 1px solid #dee2e6;
+        }
+        .badge { background: #28a745; color: white; padding: 1px 8px; border-radius: 12px; font-size: 10px; }
+        .loading { text-align: center; padding: 30px 20px; color: #666; font-size: 13px; }
+        .spinner {
+            border: 3px solid #e9ecef;
+            border-top: 3px solid #1e3c72;
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .berthing-source {
+            font-size: 8px;
+            opacity: 0.7;
+            display: block;
+            margin-top: 2px;
+        }
+        .berthing-detail {
+            font-size: 9px;
+            display: block;
+        }
+        .berthing-time {
+            font-size: 9px;
+            display: block;
+            color: #1e3c72;
+            font-weight: 600;
+        }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+        @media screen and (max-width: 768px) {
+            body { padding: 6px; }
+            .header { padding: 10px 12px; }
+            h1 { font-size: 15px; }
+            .status { font-size: 10px; padding: 3px 8px; }
+            .controls { padding: 8px 10px; gap: 6px; }
+            .search-box { font-size: 11px; padding: 4px 8px; min-width: 80px; }
+            .btn { font-size: 11px; padding: 4px 10px; }
+            .table-wrapper { padding: 4px 6px; max-height: 75vh; }
+            table { font-size: 10px; min-width: 750px; }
+            th { font-size: 9px; padding: 5px 3px; }
+            td { font-size: 9px; padding: 4px 3px; }
+            .info-bar { font-size: 9px; padding: 4px 10px; }
+            .login-container { margin: 30px 16px; padding: 20px 16px; }
+            .berthing-info { font-size: 8px; padding: 1px 4px; max-width: 170px; }
+        }
+        @media screen and (max-width: 480px) {
+            h1 { font-size: 13px; }
+            .status { font-size: 9px; }
+            table { font-size: 9px; min-width: 600px; }
+            th { font-size: 8px; padding: 4px 2px; }
+            td { font-size: 8px; padding: 3px 2px; }
+            .search-box { font-size: 10px; min-width: 60px; }
+            .btn { font-size: 10px; padding: 3px 8px; }
+            .berthing-info { font-size: 7px; padding: 1px 3px; max-width: 140px; }
+        }
+        @media screen and (max-height: 500px) and (orientation: landscape) {
+            .header { padding: 6px 12px; }
+            h1 { font-size: 14px; }
+            .controls { padding: 4px 10px; }
+            .table-wrapper { max-height: 60vh; padding: 4px 6px; }
+            table { font-size: 10px; }
+            th, td { padding: 3px 4px; }
+        }
+    </style>
+</head>
+<body>
+<div id="app"></div>
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static('.'));
+<script>
+// ============ KONFIGURASI ============
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
+const API_BASE_URL = 'https://shipment-production-e5d1.up.railway.app';
+const ACCESS_PASSWORD = 'logistik2024';
+const REFRESH_INTERVAL = 30000;
+const BERTHING_REFRESH_INTERVAL = 120000;
+const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BERTHING', 'BL', 'CONTAINER', 'AJU', 'TRUCKING', 'ETA', 'POD', 'EXP DO', 'REMARK'];
 
-// Health check
-app.get('/', (req, res) => {
-    res.send('🚢 Shipment Booms API is running!');
-});
+let currentData = [];
+let filteredData = [];
+let refreshTimer = null;
+let berthingTimer = null;
+let berthingData = {};
+let isBerthingLoaded = false;
+let berthingLastUpdate = null;
 
-// Endpoint API Berthing
-app.get('/api/berthing', async (req, res) => {
+// ============ HELPER FUNCTIONS ============
+function parseDate(dateString) {
+    if (!dateString) return null;
     try {
-        console.log('📡 Backend mengambil data berthing...');
-        
-        const sources = [
-            { url: 'https://www.jict.co.id/vessel-schedule', name: 'JICT' },
-            { url: 'https://malt300.com/Layanan/jadwalKapal', name: 'MALT' },
-            { url: 'https://www.npct1.co.id/vessel-schedule', name: 'NPCT1' },
-            { url: 'https://www.tpkkoja.co.id/vessel-schedule/', name: 'TPK KOJA' }
-        ];
-
-        let allData = {};
-        let totalVesselsFound = 0;
-
-        for (const source of sources) {
-            try {
-                console.log(`🔄 Fetching ${source.name}...`);
-                
-                const response = await fetch(source.url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        'Accept': 'text/html,application/xhtml+xml',
-                        'Accept-Language': 'en-US,en;q=0.9'
-                    },
-                    timeout: 15000 // Timeout 15 detik
-                });
-                
-                if (!response.ok) {
-                    console.warn(`⚠️ ${source.name} HTTP ${response.status} - Lewati`);
-                    continue;
-                }
-                
-                const html = await response.text();
-                console.log(`✅ ${source.name} berhasil, panjang: ${html.length} bytes`);
-                
-                // Parse HTML
-                const parsed = parseBerthingHTML(html, source.name);
-                const count = Object.keys(parsed).length;
-                totalVesselsFound += count;
-                
-                // Gabungkan data ke allData
-                for (const [vessel, info] of Object.entries(parsed)) {
-                    if (allData[vessel]) {
-                        if (Array.isArray(allData[vessel])) {
-                            allData[vessel].push(info);
-                        } else {
-                            allData[vessel] = [allData[vessel], info];
-                        }
-                    } else {
-                        allData[vessel] = [info];
-                    }
-                }
-            } catch (error) {
-                console.error(`❌ ${source.name} gagal total:`, error.message);
-            }
-        }
-
-        console.log(`📊 Total vessels berhasil diparse: ${Object.keys(allData).length} (${totalVesselsFound} data)`);
-
-        res.json({
-            success: true,
-            data: allData,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error('❌ Error di /api/berthing:', error.message);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==========================================
-// PARSER HTML YANG LEBIH ROBUST (Backend)
-// ==========================================
-function parseBerthingHTML(html, sourceName) {
-    const result = {};
-    try {
-        const $ = cheerio.load(html);
-        
-        // Cari tabel yang relevan
-        const tables = $('table');
-        let targetTable = null;
-        
-        for (let i = 0; i < tables.length; i++) {
-            const text = $(tables[i]).text().toLowerCase();
-            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule') || 
-                text.includes('voyage') || text.includes('etb')) {
-                targetTable = tables[i];
-                break;
-            }
-        }
-        
-        if (!targetTable) {
-            console.warn(`⚠️ Tidak ada tabel ditemukan di ${sourceName}`);
-            return result;
-        }
-        
-        const rows = $(targetTable).find('tr');
-        if (rows.length < 2) return result;
-        
-        // Ambil header
-        const headers = [];
-        $(rows[0]).find('th, td').each((i, cell) => {
-            headers.push($(cell).text().trim().toLowerCase());
-        });
-        
-        // Cari indeks kolom dengan logika yang lebih longgar
-        let vesselIdx = -1, voyageIdx = -1, etaIdx = -1, ataIdx = -1, statusIdx = -1, etdIdx = -1;
-        
-        for (let i = 0; i < headers.length; i++) {
-            const h = headers[i];
-            // Filter pencarian kolom
-            if (h.includes('vessel') || h.includes('kapal') || h.includes('nama') || h.includes('mv')) vesselIdx = i;
-            if (h.includes('voyage') || h.includes('voy')) voyageIdx = i;
-            if (h.includes('eta') || h.includes('etb') || h.includes('arrival')) etaIdx = i;
-            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) ataIdx = i;
-            if (h.includes('status') || h.includes('keterangan') || h.includes('activity')) statusIdx = i;
-            if (h.includes('etd') || h.includes('departure')) etdIdx = i;
-        }
-        
-        // Jika masih tidak ketemu vessel, coba cari manual di kolom ke-1 atau ke-2
-        if (vesselIdx === -1) {
-            if (headers.length > 1 && headers[1].includes('name')) vesselIdx = 1;
-            else if (headers.length > 0) vesselIdx = 0;
-        }
-        
-        if (vesselIdx === -1) {
-            console.warn(`⚠️ Tidak ditemukan kolom vessel di ${sourceName}`);
-            return result;
-        }
-        
-        // Parse data baris per baris
-        let parsedCount = 0;
-        for (let i = 1; i < rows.length; i++) {
-            const cells = $(rows[i]).find('td');
-            if (cells.length === 0 || cells.length <= vesselIdx) continue;
-            
-            let vesselName = $(cells[vesselIdx]).text().trim();
-            if (!vesselName || vesselName === '-' || vesselName.length < 3) continue;
-            
-            // Bersihkan nama kapal
-            vesselName = vesselName.replace(/^MV\.\s*/i, '').trim().toUpperCase();
-            
-            // Ambil data mentah
-            const rawVoyage = voyageIdx !== -1 && voyageIdx < cells.length ? $(cells[voyageIdx]).text().trim() : '';
-            const rawEta = etaIdx !== -1 && etaIdx < cells.length ? $(cells[etaIdx]).text().trim() : '';
-            const rawAta = ataIdx !== -1 && ataIdx < cells.length ? $(cells[ataIdx]).text().trim() : '';
-            const rawStatus = statusIdx !== -1 && statusIdx < cells.length ? $(cells[statusIdx]).text().trim() : '';
-            const rawEtd = etdIdx !== -1 && etdIdx < cells.length ? $(cells[etdIdx]).text().trim() : '';
-
-            // Tentukan Status
-            let berthingStatus = 'scheduled';
-            let statusDisplay = rawStatus;
-            
-            if (rawStatus) {
-                const s = rawStatus.toLowerCase();
-                if (s.includes('sailing') || s.includes('berlayar')) berthingStatus = 'sailing';
-                else if (s.includes('working') || s.includes('bongkar') || s.includes('loading')) berthingStatus = 'working';
-                else if (s.includes('active') || s.includes('aktif')) berthingStatus = 'active';
-                else if (s.includes('register') || s.includes('terdaftar')) berthingStatus = 'register';
-                else if (s.includes('plan') || s.includes('rencana')) berthingStatus = 'scheduled';
-                else if (s.includes('delay') || s.includes('tunda')) berthingStatus = 'delayed';
-                else if (s.includes('complete') || s.includes('selesai')) berthingStatus = 'completed';
-                else if (s.includes('sandar') || s.includes('berthed')) berthingStatus = 'berthing';
-            }
-
-            // Fungsi ekstrak Tanggal dan Jam
-            const extractDateTime = (str) => {
-                if (!str) return { date: '', time: '' };
-                let datePart = str;
-                let timePart = '';
-                const timeMatch = datePart.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-                if (timeMatch) {
-                    timePart = timeMatch[1];
-                    datePart = datePart.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
-                }
-                return { date: datePart, time: timePart };
+        let cleaned = dateString.toString().trim();
+        cleaned = cleaned.replace(/-/g, ' ').replace(/\//g, ' ');
+        const parts = cleaned.split(' ');
+        if (parts.length >= 3) {
+            let day = parseInt(parts[0]);
+            let monthStr = parts[1];
+            let year = parseInt(parts[2]);
+            const months = {
+                'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+                'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
             };
-
-            // Tentukan tanggal utama (prioritas ATA > ETA)
-            const mainDateRaw = rawAta || rawEta || '';
-            const parsedDate = extractDateTime(mainDateRaw);
-            const parsedAta = extractDateTime(rawAta);
-            const parsedEta = extractDateTime(rawEta);
-            const parsedEtd = extractDateTime(rawEtd);
-
-            // Ambil nomor Voyage (hanya angka)
-            let voyageNumber = '';
-            if (rawVoyage) {
-                const match = rawVoyage.match(/(\d+)/);
-                if (match) voyageNumber = match[1];
+            let month = months[monthStr.toLowerCase()];
+            if (month !== undefined && !isNaN(day) && !isNaN(year)) {
+                return new Date(year, month, day);
             }
-
-            const info = {
-                source: sourceName,
-                voyage: voyageNumber,
-                date: parsedDate.date,    
-                time: parsedDate.time,    
-                eta: rawEta,              
-                ata: rawAta,              
-                etd: rawEtd,              
-                status: berthingStatus,   
-                statusDisplay: statusDisplay 
-            };
-            
-            // Simpan ke result
-            if (result[vesselName]) {
-                if (Array.isArray(result[vesselName])) {
-                    result[vesselName].push(info);
-                } else {
-                    result[vesselName] = [result[vesselName], info];
-                }
-            } else {
-                result[vesselName] = [info];
-            }
-            parsedCount++;
         }
-        
-        console.log(`📊 ${sourceName}: ${parsedCount} vessels parsed`);
-        
-    } catch (error) {
-        console.error(`❌ Error parsing ${sourceName}:`, error.message);
-    }
-    
-    return result;
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? null : date;
+    } catch(e) { return null; }
 }
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server berjalan di http://0.0.0.0:${PORT}`);
-});
+function isRowValid(rowData) {
+    const consignee = (rowData['CONSIGNEE'] || '').toLowerCase().trim();
+    if (consignee === 'consignee' || consignee === 'vessel' || consignee === 'bl' || consignee === '') {
+        return false;
+    }
+
+    const forbiddenWords = ['co.', 'co', '---', '...', 'consignee', 'vessel'];
+    const displayColsWithoutBerthing = DISPLAY_COLUMNS.filter(c => c !== 'BERTHING');
+    for (const col of displayColsWithoutBerthing) {
+        const val = (rowData[col] || '').toLowerCase().trim();
+        if (forbiddenWords.includes(val) || val === '') {
+            let allForbidden = true;
+            for (const c of displayColsWithoutBerthing) {
+                const v = (rowData[c] || '').toLowerCase().trim();
+                if (v && !forbiddenWords.includes(v)) {
+                    allForbidden = false;
+                    break;
+                }
+            }
+            if (allForbidden) return false;
+        }
+    }
+
+    let filledCount = 0;
+    for (const col of displayColsWithoutBerthing) {
+        const val = rowData[col] || '';
+        const trimmed = val.trim();
+        if (trimmed && trimmed !== '-' && trimmed !== 'CO.' && trimmed !== 'CO' && trimmed !== 'co') {
+            filledCount++;
+        }
+    }
+    return filledCount >= 3;
+}
+
+// ===============================================
+// ============ FUNGSI FETCH BERTHING DARI BACKEND ============
+// ===============================================
+async function fetchBerthingData() {
+    try {
+        console.log('📡 Mengambil data berthing dari backend...');
+        const response = await fetch(`${API_BASE_URL}/api/berthing`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const result = await response.json();
+        if (result.success) {
+            berthingData = result.data;
+            isBerthingLoaded = true;
+            berthingLastUpdate = new Date(result.timestamp);
+            console.log(`✅ Berthing loaded: ${Object.keys(berthingData).length} vessels`);
+            return berthingData;
+        } else {
+            throw new Error(result.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('❌ Gagal fetch berthing:', error.message);
+        return {};
+    }
+}
+
+// ===============================================
+// ============ FUNGSI GET BERTHING INFO (REVISI FINAL) ============
+// ===============================================
+function getBerthingInfo(vesselName) {
+    if (!vesselName || !berthingData) return null;
+
+    // 1. Bersihkan nama kapal dari Google Sheet
+    // Hapus semua teks setelah tanda "/" (karena itu voyage)
+    let cleanName = vesselName.toUpperCase().trim();
+    if (cleanName.includes('/')) {
+        cleanName = cleanName.split('/')[0].trim();
+    }
+    cleanName = cleanName.replace(/\s+/g, ' '); // Hapus spasi ganda
+    
+    // Ambil 2 kata awal (Ini adalah "Root Word" / Kata Dasar)
+    let nameParts = cleanName.split(' ');
+    let primarySearchKey = nameParts.slice(0, 2).join(' '); // Misal: "MERKUR FJORD", "X-PRESS AQUARIUS"
+    
+    // Jika nama hanya 1 kata, gunakan itu
+    if (nameParts.length === 1) primarySearchKey = nameParts[0];
+
+    // 2. Loop data berthing
+    for (const [key, infos] of Object.entries(berthingData)) {
+        // Bersihkan key dari database
+        let cleanKey = key.toUpperCase().trim();
+        cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+        
+        // 3. Logika Pencocokan SUPER LONGGA
+        // Cek apakah 2 kata awal (primarySearchKey) ada di dalam cleanKey
+        // ATAU cleanKey ada di dalam primarySearchKey
+        if (cleanKey.includes(primarySearchKey) || primarySearchKey.includes(cleanKey)) {
+            return infos;
+        }
+        
+        // Fallback: Jika primarySearchKey gagal, coba seluruh cleanName
+        if (cleanKey.includes(cleanName) || cleanName.includes(cleanKey)) {
+            return infos;
+        }
+    }
+
+    return null;
+}
+
+function renderBerthingHTML(vesselName) {
+    const infos = getBerthingInfo(vesselName);
+    if (!infos || infos.length === 0) {
+        return `<span class="berthing-info berthing-unknown">⚪ Tidak tersedia</span>`;
+    }
+
+    if (!Array.isArray(infos)) {
+        return renderSingleBerthing(infos);
+    }
+
+    const priority = ['JICT', 'NPCT1', 'TPK KOJA', 'MALT'];
+    let sorted = [...infos].sort((a, b) => {
+        const idxA = priority.indexOf(a.source);
+        const idxB = priority.indexOf(b.source);
+        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+
+    const main = sorted[0];
+    let html = renderSingleBerthing(main);
+    if (sorted.length > 1) {
+        html += `<span class="berthing-source">+${sorted.length - 1} sumber lain</span>`;
+    }
+    return html;
+}
+
+function renderSingleBerthing(info) {
+    const statusMap = {
+        'scheduled': '📋 Terjadwal',
+        'berthing': '⚓ Sandar',
+        'delayed': '⏳ Tertunda',
+        'completed': '✅ Selesai',
+        'canceled': '❌ Dibatalkan',
+        'sailing': '🚢 Berlayar',
+        'working': '⚓ Bongkar',
+        'active': '🟢 Aktif',
+        'register': '📝 Terdaftar'
+    };
+
+    const statusClassMap = {
+        'scheduled': 'berthing-scheduled',
+        'berthing': 'berthing-berthing',
+        'delayed': 'berthing-delayed',
+        'completed': 'berthing-completed',
+        'canceled': 'berthing-delayed',
+        'sailing': 'berthing-sailing',
+        'working': 'berthing-working',
+        'active': 'berthing-active',
+        'register': 'berthing-register'
+    };
+
+    const statusText = statusMap[info.status] || info.statusDisplay || info.status || 'Tidak diketahui';
+    const statusClass = statusClassMap[info.status] || 'berthing-unknown';
+
+    let detailParts = [];
+    if (info.date) {
+        let dateDisplay = info.date;
+        if (info.time) {
+            dateDisplay += ` ${info.time}`;
+        }
+        detailParts.push(`📅 ${dateDisplay}`);
+    }
+    
+    if (info.ata && !info.date) {
+        detailParts.push(`ATA: ${info.ata}`);
+    }
+    
+    if (info.etd) {
+        detailParts.push(`ETD: ${info.etd}`);
+    }
+    
+    if (info.voyage) detailParts.push(`Voy: ${info.voyage}`);
+    
+    const detailText = detailParts.length > 0 ? detailParts.join(' | ') : '';
+
+    return `<span class="berthing-info ${statusClass}">
+        ${statusText}
+        ${detailText ? `<span class="berthing-detail">${detailText}</span>` : ''}
+        <span class="berthing-source">📡 ${info.source}</span>
+    </span>`;
+}
+
+// ===============================================
+// ============ CLASS APLIKASI UTAMA ============
+// ===============================================
+class SecureSheetViewer {
+    constructor() { this.checkAuth(); }
+
+    checkAuth() {
+        const isAuthenticated = sessionStorage.getItem('sheet_authenticated');
+        if (isAuthenticated === 'true') {
+            this.initApp();
+        } else {
+            this.showLogin();
+        }
+    }
+
+    showLogin() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+            <div class="login-container">
+                <h2>🔒 Akses Terbatas</h2>
+                <p style="margin-bottom: 16px; color: #666; font-size: 14px;">Masukkan password untuk melihat data</p>
+                <input type="password" id="passwordInput" class="login-input" placeholder="Password" autocomplete="off">
+                <button onclick="window.viewer.verifyPassword()" class="btn btn-primary" style="width: 100%; margin-top: 8px; padding: 10px;">Verifikasi Akses</button>
+                <div id="loginError" class="error"></div>
+            </div>
+        `;
+        document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.verifyPassword();
+        });
+    }
+
+    verifyPassword() {
+        const passwordInput = document.getElementById('passwordInput');
+        const errorDiv = document.getElementById('loginError');
+        if (passwordInput.value === ACCESS_PASSWORD) {
+            sessionStorage.setItem('sheet_authenticated', 'true');
+            this.initApp();
+        } else {
+            errorDiv.textContent = '❌ Password salah! Akses ditolak.';
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+    }
+
+    async initApp() {
+        this.renderMainUI();
+        await fetchBerthingData();
+        this.startBerthingRefresh();
+        await this.loadData();
+        this.startAutoRefresh();
+    }
+
+    renderMainUI() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+            <div class="container">
+                <div class="header">
+                    <h1>🚢 SHIPMENT BOOMS - Live Tracking</h1>
+                    <div class="status">
+                        <div class="online"></div>
+                        <span>Live Update (${REFRESH_INTERVAL / 1000} detik)</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari data...">
+                    <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
+                    <button id="berthingRefreshBtn" class="btn btn-warning">⚓ Refresh Berthing</button>
+                    <button id="logoutBtn" class="btn btn-danger">🚪 Logout</button>
+                </div>
+                <div class="info-bar" id="infoBar">
+                    <span>📅 Memuat data...</span>
+                    <span>📊 0 baris</span>
+                    <span id="berthingStatus">⚓ Berthing: Memuat...</span>
+                </div>
+                <div class="table-wrapper" id="tableWrapper">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Memuat data dari Google Sheets...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('searchInput').addEventListener('input', (e) => this.filterData(e.target.value));
+        document.getElementById('refreshBtn').addEventListener('click', () => this.loadData(true));
+        document.getElementById('berthingRefreshBtn').addEventListener('click', () => this.refreshBerthing(true));
+        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+    }
+
+    async refreshBerthing(showNotification = false) {
+        const statusEl = document.getElementById('berthingStatus');
+        if (statusEl) statusEl.textContent = '⚓ Berthing: Mengupdate...';
+        
+        await fetchBerthingData();
+        this.updateTable();
+        this.updateInfoBar();
+        
+        if (showNotification) this.showToast('Jadwal berthing diperbarui!', 'success');
+        
+        if (statusEl) {
+            const total = Object.values(berthingData).reduce((sum, val) => sum + (Array.isArray(val) ? val.length : 1), 0);
+            const sources = new Set();
+            for (const infos of Object.values(berthingData)) {
+                const arr = Array.isArray(infos) ? infos : [infos];
+                for (const info of arr) {
+                    sources.add(info.source);
+                }
+            }
+            statusEl.textContent = `⚓ Berthing: ${Object.keys(berthingData).length} vessel, ${total} data (${Array.from(sources).join(', ')})`;
+        }
+    }
+
+    async loadData(showNotification = false) {
+        try {
+            this.showLoading();
+            const response = await fetch(GOOGLE_SHEET_CSV_URL);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const csvText = await response.text();
+            if (!csvText || csvText.trim() === '') throw new Error('Data kosong');
+
+            this.parseCSV(csvText);
+
+            if (showNotification) this.showToast('Data berhasil diperbarui!', 'success');
+
+            this.updateTable();
+            this.updateInfoBar();
+        } catch(error) {
+            console.error(error);
+            this.showError(`GAGAL MEMUAT DATA\n\nError: ${error.message}`);
+        }
+    }
+
+    parseCSV(csvText) {
+        const rows = csvText.split('\n').filter(row => row.trim());
+        if (rows.length === 0) return;
+
+        const rawHeaders = this.parseCSVRow(rows[0]);
+        const headerMap = {};
+        rawHeaders.forEach((h, idx) => {
+            headerMap[h.toLowerCase().trim()] = idx;
+        });
+
+        const columnIndices = {};
+        const csvColumns = DISPLAY_COLUMNS.filter(c => c !== 'BERTHING');
+        for (const col of csvColumns) {
+            const lowerCol = col.toLowerCase();
+            columnIndices[col] = headerMap[lowerCol] !== undefined ? headerMap[lowerCol] : -1;
+        }
+
+        const dataRows = [];
+        for (let i = 1; i < rows.length; i++) {
+            const row = this.parseCSVRow(rows[i]);
+            const rowData = {};
+            let hasData = false;
+
+            for (const col of csvColumns) {
+                const idx = columnIndices[col];
+                if (idx !== -1 && idx < row.length) {
+                    rowData[col] = row[idx] || '';
+                    if (rowData[col]) hasData = true;
+                } else {
+                    rowData[col] = '';
+                }
+            }
+
+            if (rowData['AJU'] && rowData['AJU'].toString().trim() === '730') {
+                rowData['VESSEL'] = 'YM EFFICIENCY / 204S';
+            }
+
+            rowData['BERTHING'] = '';
+
+            if (!isRowValid(rowData)) {
+                continue;
+            }
+
+            if (hasData) {
+                rowData._parsedDate = parseDate(rowData['ETA']);
+                dataRows.push(rowData);
+            }
+        }
+
+        dataRows.sort((a, b) => {
+            if (!a._parsedDate && !b._parsedDate) return 0;
+            if (!a._parsedDate) return 1;
+            if (!b._parsedDate) return -1;
+            return a._parsedDate - b._parsedDate;
+        });
+
+        currentData = dataRows;
+        filteredData = [...currentData];
+    }
+
+    parseCSVRow(row) {
+        const result = [];
+        let inQuotes = false;
+        let currentValue = '';
+        for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(currentValue.trim());
+                currentValue = '';
+            } else {
+                currentValue += char;
+            }
+        }
+        result.push(currentValue.trim());
+        return result;
+    }
+
+    filterData(searchTerm) {
+        if (!searchTerm.trim()) {
+            filteredData = [...currentData];
+        } else {
+            const term = searchTerm.toLowerCase();
+            filteredData = currentData.filter(row => {
+                return Object.values(row).some(value =>
+                    value && String(value).toLowerCase().includes(term)
+                );
+            });
+        }
+        this.updateTable();
+        this.updateInfoBar(searchTerm);
+    }
+
+    updateTable() {
+        const wrapper = document.getElementById('tableWrapper');
+        if (!wrapper) return;
+
+        if (filteredData.length === 0) {
+            wrapper.innerHTML = '<div class="loading"><p>📭 Tidak ada data ditemukan</p></div>';
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let html = '<table>\n<thead>\n<tr>\n';
+        for (const col of DISPLAY_COLUMNS) {
+            let displayName = col;
+            if (col === 'ETA') displayName = 'ETA 📅';
+            if (col === 'AJU') displayName = 'AJU';
+            if (col === 'TRUCKING') displayName = 'TRUCKING 🚛';
+            if (col === 'BERTHING') displayName = '⚓ BERTHING';
+            html += `<th>${displayName}</th>\n`;
+        }
+        html += '</tr>\n</thead>\n<tbody>\n';
+
+        for (const row of filteredData) {
+            html += '<tr>\n';
+            for (const col of DISPLAY_COLUMNS) {
+                let value = row[col] || '-';
+                let additionalClass = '';
+
+                if (col === 'ETA') {
+                    const etaDate = parseDate(value);
+                    if (etaDate && etaDate < today) {
+                        additionalClass = 'eta-lewat';
+                        value = `⚠️ ${value}`;
+                    }
+                }
+
+                if (col === 'CONTAINER' && value.includes(',')) {
+                    value = value.replace(/,/g, ', ');
+                }
+
+                if (col === 'BERTHING') {
+                    const vesselName = row['VESSEL'] || '';
+                    // Langsung kirim nama kapal asli (fungsi getBerthingInfo sudah menangani pembersihan di dalamnya)
+                    html += `<td>${renderBerthingHTML(vesselName)}</td>\n`;
+                    continue;
+                }
+
+                html += `<td class="${additionalClass}">${this.escapeHtml(value)}</td>\n`;
+            }
+            html += '</tr>\n';
+        }
+
+        html += '</tbody>\n</table>';
+        wrapper.innerHTML = html;
+    }
+
+    updateInfoBar(searchTerm = '') {
+        const infoBar = document.getElementById('infoBar');
+        if (!infoBar) return;
+
+        const lastUpdate = new Date().toLocaleTimeString('id-ID');
+        const totalRows = currentData.length;
+        const filteredRows = filteredData.length;
+        
+        const totalBerthing = Object.values(berthingData).reduce((sum, val) => sum + (Array.isArray(val) ? val.length : 1), 0);
+        const sources = new Set();
+        for (const infos of Object.values(berthingData)) {
+            const arr = Array.isArray(infos) ? infos : [infos];
+            for (const info of arr) {
+                sources.add(info.source);
+            }
+        }
+
+        infoBar.innerHTML = `
+            <span>🕐 Update: ${lastUpdate}</span>
+            <span>📊 ${filteredRows} / ${totalRows} baris</span>
+            <span>⚓ Berthing: ${Object.keys(berthingData).length} vessel (${totalBerthing} data)</span>
+            ${searchTerm ? `<span>🔍 "${searchTerm}"</span>` : ''}
+            <span class="badge">Urut ETA ↑</span>
+        `;
+    }
+
+    showLoading() {
+        const wrapper = document.getElementById('tableWrapper');
+        if (wrapper) {
+            wrapper.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Mengupdate data...</p>
+                </div>
+            `;
+        }
+    }
+
+    showError(message) {
+        const wrapper = document.getElementById('tableWrapper');
+        if (wrapper) {
+            wrapper.innerHTML = `
+                <div class="loading">
+                    <div style="color: #dc3545; font-size: 32px; margin-bottom: 10px;">⚠️</div>
+                    <p style="color: #dc3545; white-space: pre-line; font-size: 13px;">${message}</p>
+                    <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 12px;">Coba Lagi</button>
+                </div>
+            `;
+        }
+    }
+
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px

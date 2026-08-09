@@ -342,27 +342,24 @@ async function fetchBerthingData() {
 }
 
 // ===============================================
-// ============ FUNGSI GET BERTHING INFO (VERSI PEMBERSIHAN NAMA) ============
+// ============ FUNGSI GET BERTHING INFO (FIX SPASI FINAL) ============
 // ===============================================
 function getBerthingInfo(vesselName) {
     if (!vesselName || !berthingData) return null;
 
     // 1. Bersihkan nama kapal dari Google Sheet
-    // Potong semua karakter setelah tanda "/" atau "-"
+    // Potong semua karakter setelah tanda "/" 
     let cleanName = vesselName.toUpperCase().trim();
     if (cleanName.includes('/')) {
-        cleanName = cleanName.split('/')[0].trim();
+        cleanName = cleanName.split('/')[0].trim(); // .trim() SANGAT PENTING DI SINI!
     }
-    if (cleanName.includes('-')) {
-        cleanName = cleanName.split('-')[0].trim();
-    }
-    cleanName = cleanName.replace(/\s+/g, ' '); // Hapus spasi ganda
+    cleanName = cleanName.replace(/\s+/g, ' ').trim(); // Hapus spasi ganda dan di ujung
     
     // 2. Loop data berthing
     for (const [key, infos] of Object.entries(berthingData)) {
-        // Bersihkan key dari database (ubah underscore jadi spasi)
+        // Bersihkan key dari database
         let cleanKey = key.toUpperCase().trim();
-        cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ');
+        cleanKey = cleanKey.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
         
         // 3. Logika Pencocokan
         // Cek apakah cleanName ada di dalam cleanKey, atau sebaliknya
@@ -724,7 +721,6 @@ class SecureSheetViewer {
 
                 if (col === 'BERTHING') {
                     const vesselName = row['VESSEL'] || '';
-                    // Kirim nama kapal ke fungsi render
                     html += `<td>${renderBerthingHTML(vesselName)}</td>\n`;
                     continue;
                 }

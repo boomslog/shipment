@@ -76,10 +76,10 @@
         .btn-primary:hover { background: #0f2b52; }
         .btn-danger { background: #dc3545; color: white; }
         .btn-danger:hover { background: #b02a37; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover { background: #1e7e34; }
         .btn-warning { background: #ffc107; color: #212529; }
         .btn-warning:hover { background: #e0a800; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e7e34; }
         .search-box {
             flex: 1;
             min-width: 120px;
@@ -152,7 +152,7 @@
             border-radius: 4px;
             display: inline-block;
             margin: 2px 0;
-            max-width: 200px;
+            max-width: 220px;
         }
         .berthing-scheduled { background: #fff3cd; color: #856404; }
         .berthing-berthing { background: #d4edda; color: #155724; }
@@ -174,7 +174,6 @@
             border-top: 1px solid #dee2e6;
         }
         .badge { background: #28a745; color: white; padding: 1px 8px; border-radius: 12px; font-size: 10px; }
-        .badge-warning { background: #ffc107; color: #212529; }
         .loading { text-align: center; padding: 30px 20px; color: #666; font-size: 13px; }
         .spinner {
             border: 3px solid #e9ecef;
@@ -195,6 +194,12 @@
             font-size: 9px;
             display: block;
         }
+        .berthing-time {
+            font-size: 9px;
+            display: block;
+            color: #1e3c72;
+            font-weight: 600;
+        }
 
         @media screen and (max-width: 768px) {
             body { padding: 6px; }
@@ -210,7 +215,7 @@
             td { font-size: 9px; padding: 4px 3px; }
             .info-bar { font-size: 9px; padding: 4px 10px; }
             .login-container { margin: 30px 16px; padding: 20px 16px; }
-            .berthing-info { font-size: 8px; padding: 1px 4px; max-width: 150px; }
+            .berthing-info { font-size: 8px; padding: 1px 4px; max-width: 170px; }
         }
         @media screen and (max-width: 480px) {
             h1 { font-size: 13px; }
@@ -220,7 +225,7 @@
             td { font-size: 8px; padding: 3px 2px; }
             .search-box { font-size: 10px; min-width: 60px; }
             .btn { font-size: 10px; padding: 3px 8px; }
-            .berthing-info { font-size: 7px; padding: 1px 3px; max-width: 120px; }
+            .berthing-info { font-size: 7px; padding: 1px 3px; max-width: 140px; }
         }
         @media screen and (max-height: 500px) and (orientation: landscape) {
             .header { padding: 6px 12px; }
@@ -239,39 +244,37 @@
     // ============ KONFIGURASI ============
     const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7E2heFlpOt2q4BJruVMvq_GT4I9lRFtao1a4Zefj8RfzZzLQwxh7-Zeuq_9TQ2E48aqUQMmCHV87n/pub?gid=1977505701&single=true&output=csv';
 
+    // ============ CORS PROXY ============
+    const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
     // ============ URL SUMBER JADWAL BERTHING ============
     const BERTHING_SOURCES = [
         {
-            url: 'https://www.jict.co.id/vessel-schedule',
-            type: 'html-table',
-            selector: 'table',
+            url: CORS_PROXY + encodeURIComponent('https://www.jict.co.id/vessel-schedule'),
+            type: 'html',
             name: 'JICT'
         },
         {
-            url: 'https://malt300.com/Layanan/jadwalKapal',
-            type: 'html-table',
-            selector: 'table',
+            url: CORS_PROXY + encodeURIComponent('https://malt300.com/Layanan/jadwalKapal'),
+            type: 'html',
             name: 'MALT'
         },
         {
-            url: 'https://www.npct1.co.id/vessel-schedule',
-            type: 'html-table',
-            selector: 'table',
+            url: CORS_PROXY + encodeURIComponent('https://www.npct1.co.id/vessel-schedule'),
+            type: 'html',
             name: 'NPCT1'
         },
         {
-            url: 'https://www.tpkkoja.co.id/vessel-schedule/',
-            type: 'html-table',
-            selector: 'table',
+            url: CORS_PROXY + encodeURIComponent('https://www.tpkkoja.co.id/vessel-schedule/'),
+            type: 'html',
             name: 'TPK KOJA'
         }
     ];
 
     const ACCESS_PASSWORD = 'logistik2024';
     const REFRESH_INTERVAL = 30000;
-    const BERTHING_REFRESH_INTERVAL = 120000; // Refresh jadwal berthing setiap 2 menit
+    const BERTHING_REFRESH_INTERVAL = 120000;
 
-    // KOLOM YANG DITAMPILKAN (URUTAN: CONSIGNEE, VESSEL, BERTHING, BL, CONTAINER, AJU, TRUCKING, ETA, POD, EXP DO, REMARK)
     const DISPLAY_COLUMNS = ['CONSIGNEE', 'VESSEL', 'BERTHING', 'BL', 'CONTAINER', 'AJU', 'TRUCKING', 'ETA', 'POD', 'EXP DO', 'REMARK'];
     // ======================================
 
@@ -283,7 +286,6 @@
     let isBerthingLoaded = false;
     let berthingLastUpdate = null;
 
-    // ---- MANUAL OVERRIDE VESSEL untuk AJU 730 ----
     function overrideVessel(rowData) {
         const aju = (rowData['AJU'] || '').toString().trim();
         if (aju === '730') {
@@ -292,7 +294,6 @@
         return rowData['VESSEL'] || '';
     }
 
-    // ---- Parse Tanggal ----
     function parseDate(dateString) {
         if (!dateString) return null;
         try {
@@ -317,7 +318,6 @@
         } catch(e) { return null; }
     }
 
-    // ---- Filter baris tidak valid ----
     function isRowValid(rowData) {
         const consignee = (rowData['CONSIGNEE'] || '').toLowerCase().trim();
         if (consignee === 'consignee' || consignee === 'vessel' || consignee === 'bl' || consignee === '') {
@@ -360,20 +360,21 @@
 
         for (const source of BERTHING_SOURCES) {
             try {
+                console.log(`Mengambil data dari ${source.name}...`);
                 const response = await fetch(source.url, {
                     headers: { 
-                        'Cache-Control': 'no-cache',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        'Cache-Control': 'no-cache'
                     }
                 });
+                
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
+                
                 const html = await response.text();
+                console.log(`Berhasil mengambil data dari ${source.name}, panjang: ${html.length} characters`);
+                
                 const parsed = parseBerthingHTML(html, source);
                 
-                // Merge data
                 for (const [vessel, info] of Object.entries(parsed)) {
-                    // Jika vessel sudah ada, tambahkan sumber baru
                     if (allData[vessel]) {
                         if (Array.isArray(allData[vessel])) {
                             allData[vessel].push(info);
@@ -390,41 +391,34 @@
             }
         }
 
-        // Update data
         berthingData = allData;
         isBerthingLoaded = true;
         berthingLastUpdate = new Date();
 
-        if (successCount > 0) {
-            console.log(`Berthing data berhasil di-load dari ${successCount} sumber`);
-        } else {
-            console.warn('Tidak ada sumber berthing yang berhasil di-load');
-        }
-
+        const totalVessels = Object.keys(allData).length;
+        console.log(`Berthing data loaded: ${totalVessels} vessels dari ${successCount} sumber`);
+        
         return allData;
     }
 
-    // ---- Parser HTML jadwal berthing ----
     function parseBerthingHTML(html, source) {
         const result = {};
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        // Cari semua tabel
         const tables = doc.querySelectorAll('table');
         let targetTable = null;
 
-        // Cari tabel yang mengandung kata kunci vessel
         for (const table of tables) {
             const text = table.textContent.toLowerCase();
-            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule')) {
+            if (text.includes('vessel') || text.includes('kapal') || text.includes('schedule') || 
+                text.includes('voyage') || text.includes('jadwal')) {
                 targetTable = table;
                 break;
             }
         }
 
         if (!targetTable) {
-            // Jika tidak ada tabel, coba cari elemen dengan class yang umum
             const possibleTables = doc.querySelectorAll('[class*="table"], [class*="schedule"], [class*="vessel"]');
             for (const el of possibleTables) {
                 if (el.tagName === 'TABLE') {
@@ -434,13 +428,14 @@
             }
         }
 
-        if (!targetTable) return result;
+        if (!targetTable) {
+            console.warn(`Tidak ditemukan tabel di ${source.name}`);
+            return result;
+        }
 
-        // Parse tabel berdasarkan sumber
         const rows = targetTable.querySelectorAll('tr');
         if (rows.length < 2) return result;
 
-        // Ambil header
         const headerRow = rows[0];
         const headers = [];
         const headerCells = headerRow.querySelectorAll('th, td');
@@ -448,43 +443,26 @@
             headers.push(cell.textContent.trim().toLowerCase());
         }
 
-        // Cari indeks kolom penting
         let vesselIdx = -1;
         let voyageIdx = -1;
         let etaIdx = -1;
-        let etbIdx = -1;
         let ataIdx = -1;
         let statusIdx = -1;
+        let etdIdx = -1;
         let berthingIdx = -1;
         let arrivalIdx = -1;
-        let etdIdx = -1;
 
         for (let i = 0; i < headers.length; i++) {
             const h = headers[i];
-            if (h.includes('vessel') || h.includes('kapal') || h.includes('nama')) {
-                vesselIdx = i;
-            }
-            if (h.includes('voyage') || h.includes('voy')) {
-                voyageIdx = i;
-            }
-            if (h.includes('eta') || h.includes('etb')) {
-                etaIdx = i;
-            }
-            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) {
-                ataIdx = i;
-            }
-            if (h.includes('status') || h.includes('keterangan')) {
-                statusIdx = i;
-            }
-            if (h.includes('arrival') || h.includes('kedatangan')) {
-                arrivalIdx = i;
-            }
-            if (h.includes('etd') || h.includes('departure')) {
-                etdIdx = i;
-            }
+            if (h.includes('vessel') || h.includes('kapal') || h.includes('nama')) vesselIdx = i;
+            if (h.includes('voyage') || h.includes('voy')) voyageIdx = i;
+            if (h.includes('eta') || h.includes('etb')) etaIdx = i;
+            if (h.includes('ata') || h.includes('berthing') || h.includes('sand')) ataIdx = i;
+            if (h.includes('status') || h.includes('keterangan')) statusIdx = i;
+            if (h.includes('etd') || h.includes('departure')) etdIdx = i;
+            if (h.includes('arrival') || h.includes('kedatangan')) arrivalIdx = i;
         }
 
-        // Jika tidak ditemukan vessel, coba deteksi otomatis
         if (vesselIdx === -1) {
             for (let i = 0; i < headers.length; i++) {
                 const h = headers[i];
@@ -496,19 +474,16 @@
         }
 
         if (vesselIdx === -1) {
-            // Coba cari berdasarkan nama sumber
             if (source.name === 'JICT') {
-                // Format JICT: Vessel Name | Voyage | Arrival | Berthing | Departure | ...
                 for (let i = 0; i < headers.length; i++) {
                     const h = headers[i];
                     if (h === 'vessel name') vesselIdx = i;
                     if (h === 'arrival') arrivalIdx = i;
-                    if (h === 'berthing') berthingIdx = i;
+                    if (h === 'berthing') ataIdx = i;
                     if (h === 'departure') etdIdx = i;
                     if (h === 'status') statusIdx = i;
                 }
             } else if (source.name === 'MALT') {
-                // Format MALT: No | MV. ... | Line | VoyS | VoyN | ETB | ATA | ETD | ...
                 for (let i = 0; i < headers.length; i++) {
                     const h = headers[i];
                     if (h.includes('mv') || h.includes('vessel')) vesselIdx = i;
@@ -518,7 +493,6 @@
                     if (h.includes('etd')) etdIdx = i;
                 }
             } else if (source.name === 'NPCT1') {
-                // Format NPCT1: VESSEL | LINE | VOY_IN | VOY_OUT | SERVICE | STATUS | ETB | ATA | ETD | ATD | ...
                 for (let i = 0; i < headers.length; i++) {
                     const h = headers[i];
                     if (h === 'vessel') vesselIdx = i;
@@ -528,7 +502,6 @@
                     if (h === 'etd') etdIdx = i;
                 }
             } else if (source.name === 'TPK KOJA') {
-                // Format TPK KOJA: NO | VESSEL | VESSEL NAME | ETA | CT | ETD | NO_BC | BERTHING DATETIME | ...
                 for (let i = 0; i < headers.length; i++) {
                     const h = headers[i];
                     if (h === 'vessel name') vesselIdx = i;
@@ -539,7 +512,12 @@
             }
         }
 
-        // Proses setiap baris data
+        if (vesselIdx === -1) {
+            console.warn(`Tidak ditemukan kolom vessel di ${source.name}`);
+            return result;
+        }
+
+        let parsedCount = 0;
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             const cells = row.querySelectorAll('td');
@@ -552,8 +530,8 @@
             let status = '';
             let etd = '';
             let berthingTime = '';
+            let arrival = '';
 
-            // Ambil data berdasarkan indeks
             if (vesselIdx !== -1 && vesselIdx < cells.length) {
                 vesselName = cells[vesselIdx].textContent.trim();
             }
@@ -582,20 +560,20 @@
                 berthingTime = cells[berthingIdx].textContent.trim();
             }
 
-            // Jika vesselName kosong, skip
+            if (arrivalIdx !== -1 && arrivalIdx < cells.length) {
+                arrival = cells[arrivalIdx].textContent.trim();
+            }
+
             if (!vesselName) continue;
 
-            // Bersihkan nama vessel
             vesselName = vesselName.replace(/^MV\.\s*/i, '').replace(/^\s*MV\s*/i, '').trim().toUpperCase();
 
-            // Ambil angka voyage (abaikan S/N)
             let voyageNumber = '';
             if (voyage) {
                 const match = voyage.match(/(\d+)/);
                 if (match) voyageNumber = match[1];
             }
 
-            // Tentukan status berthing
             let berthingStatus = 'scheduled';
             let statusDisplay = status || '';
 
@@ -610,11 +588,21 @@
                 else if (s.includes('complete') || s.includes('selesai')) berthingStatus = 'completed';
             }
 
-            // Gunakan ATA jika ada, jika tidak ETB/ETA
-            let berthingDate = ata || eta || berthingTime || '';
+            // Gunakan ATA jika ada, jika tidak ETB/ETA, jika tidak Arrival
+            let berthingDate = ata || eta || arrival || berthingTime || '';
 
-            // Simpan data
-            const key = vesselName;
+            // Ekstrak waktu/jam dari string tanggal
+            let timeOnly = '';
+            if (berthingDate) {
+                // Cari pola waktu HH:MM atau HH:MM:SS
+                const timeMatch = berthingDate.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+                if (timeMatch) {
+                    timeOnly = timeMatch[1];
+                }
+                // Bersihkan tanggal (ambil hanya tanggal)
+                berthingDate = berthingDate.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
+            }
+
             const info = {
                 source: source.name,
                 voyage: voyageNumber,
@@ -622,44 +610,44 @@
                 ata: ata,
                 etd: etd,
                 berthingTime: berthingTime,
+                arrival: arrival,
                 status: berthingStatus,
                 statusDisplay: statusDisplay,
                 date: berthingDate,
+                time: timeOnly,
                 raw: {
                     voyage: voyage,
                     status: status,
                     eta: eta,
                     ata: ata,
                     etd: etd,
-                    berthingTime: berthingTime
+                    berthingTime: berthingTime,
+                    arrival: arrival
                 }
             };
 
-            // Jika vessel sudah ada, tambahkan sebagai array
-            if (result[key]) {
-                if (Array.isArray(result[key])) {
-                    result[key].push(info);
+            if (result[vesselName]) {
+                if (Array.isArray(result[vesselName])) {
+                    result[vesselName].push(info);
                 } else {
-                    result[key] = [result[key], info];
+                    result[vesselName] = [result[vesselName], info];
                 }
             } else {
-                result[key] = [info];
+                result[vesselName] = [info];
             }
+            parsedCount++;
         }
 
+        console.log(`Parsed ${parsedCount} vessels from ${source.name}`);
         return result;
     }
 
-    // ---- Fungsi untuk mendapatkan status berthing ----
     function getBerthingInfo(vesselName) {
         if (!vesselName || !berthingData) return null;
 
-        // Bersihkan nama vessel
         let cleanName = vesselName.toUpperCase().trim();
-        // Hapus kode tambahan seperti / 204S
         cleanName = cleanName.split('/')[0].trim();
 
-        // Cari di data berthing (case insensitive)
         for (const [key, infos] of Object.entries(berthingData)) {
             if (cleanName.includes(key) || key.includes(cleanName)) {
                 return infos;
@@ -669,20 +657,16 @@
         return null;
     }
 
-    // ---- Render HTML untuk status berthing ----
     function renderBerthingHTML(vesselName) {
         const infos = getBerthingInfo(vesselName);
         if (!infos || infos.length === 0) {
             return `<span class="berthing-info berthing-unknown">⚪ Tidak tersedia</span>`;
         }
 
-        // Jika hanya satu sumber
         if (!Array.isArray(infos)) {
             return renderSingleBerthing(infos);
         }
 
-        // Multiple sumber - tampilkan yang paling relevan
-        // Prioritaskan: JICT, NPCT1, TPK KOJA, MALT
         const priority = ['JICT', 'NPCT1', 'TPK KOJA', 'MALT'];
         let sorted = [...infos].sort((a, b) => {
             const idxA = priority.indexOf(a.source);
@@ -690,7 +674,6 @@
             return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
         });
 
-        // Tampilkan sumber utama + indikator ada data lain
         const main = sorted[0];
         let html = renderSingleBerthing(main);
         if (sorted.length > 1) {
@@ -728,9 +711,39 @@
         const statusClass = statusClassMap[info.status] || 'berthing-unknown';
 
         let detailParts = [];
-        if (info.ata) detailParts.push(`ATA: ${info.ata}`);
-        else if (info.eta) detailParts.push(`ETA: ${info.eta}`);
-        if (info.etd) detailParts.push(`ETD: ${info.etd}`);
+        
+        // Tampilkan tanggal dan jam
+        if (info.date) {
+            let dateDisplay = info.date;
+            if (info.time) {
+                dateDisplay += ` ${info.time}`;
+            }
+            detailParts.push(`📅 ${dateDisplay}`);
+        }
+        
+        // Tampilkan ATA jika ada dan berbeda dari date
+        if (info.ata && !info.date) {
+            let ataDisplay = info.ata;
+            const timeMatch = ataDisplay.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+            if (timeMatch) {
+                ataDisplay = ataDisplay.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
+                detailParts.push(`ATA: ${ataDisplay} ${timeMatch[1]}`);
+            } else {
+                detailParts.push(`ATA: ${ataDisplay}`);
+            }
+        }
+        
+        if (info.etd) {
+            let etdDisplay = info.etd;
+            const timeMatch = etdDisplay.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+            if (timeMatch) {
+                etdDisplay = etdDisplay.replace(/\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, '').trim();
+                detailParts.push(`ETD: ${etdDisplay} ${timeMatch[1]}`);
+            } else {
+                detailParts.push(`ETD: ${etdDisplay}`);
+            }
+        }
+        
         if (info.voyage) detailParts.push(`Voy: ${info.voyage}`);
         
         const detailText = detailParts.length > 0 ? detailParts.join(' | ') : '';
@@ -744,7 +757,6 @@
 
     // ====================================================
 
-    // ---- CLASS MAIN ----
     class SecureSheetViewer {
         constructor() { this.checkAuth(); }
 
@@ -789,7 +801,6 @@
         async initApp() {
             this.renderMainUI();
             
-            // Load berthing data terlebih dahulu
             await fetchBerthingData();
             this.startBerthingRefresh();
             
@@ -1133,7 +1144,6 @@
         }
     }
 
-    // Animasi tambahan
     const styleEl = document.createElement('style');
     styleEl.textContent = `
         @keyframes slideIn {
@@ -1147,9 +1157,8 @@
     `;
     document.head.appendChild(styleEl);
 
-    // Jalankan
     window.viewer = new SecureSheetViewer();
 </script>
 </body>
 </html>
-feat: tambahkan kolom BERTHING dari 4 sumber terminal
+feat: tambahkan jam berthing di samping tanggal
